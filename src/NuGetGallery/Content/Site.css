@@ -1331,6 +1331,19 @@ body.s-noclickonce .s-clickonce {
     vertical-align: bottom;
 }
 
+.nucon-azuread-w {
+    background: url('images/icons/azuread_64_white.png');
+    background-size: contain;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    margin: 0;
+    margin-left: 3px;
+    margin-right: 3px;
+    display: inline-block;
+    vertical-align: bottom;
+}
+
 span.sorted-by {
     float: right;
     color: #52a4ca;
