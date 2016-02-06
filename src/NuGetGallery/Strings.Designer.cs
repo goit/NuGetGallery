@@ -420,6 +420,42 @@ namespace NuGetGallery {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to LDAP.
+        /// </summary>
+        public static string LdapUser_AccountNoun {
+            get {
+                return ResourceManager.GetString("LdapUser_AccountNoun", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to LDAP.
+        /// </summary>
+        public static string LdapUser_Caption {
+            get {
+                return ResourceManager.GetString("LdapUser_Caption", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You are logged in with your company credentials..
+        /// </summary>
+        public static string LdapUser_Description {
+            get {
+                return ResourceManager.GetString("LdapUser_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sign in with your company credentials.
+        /// </summary>
+        public static string LdapUser_SignInMessage {
+            get {
+                return ResourceManager.GetString("LdapUser_SignInMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cannot send added/removed email for credentials of type &apos;{0}&apos;.
         /// </summary>
         public static string MessageService_CannotSendEmailForCredential {

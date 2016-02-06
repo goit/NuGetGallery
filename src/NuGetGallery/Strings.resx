@@ -368,4 +368,16 @@ The {2} Team</value>
   <data name="MicrosoftAccount_Description" xml:space="preserve">
     <value>You can use this Microsoft account to sign in to NuGet.org</value>
   </data>
+  <data name="LdapUser_AccountNoun" xml:space="preserve">
+    <value>LDAP</value>
+  </data>
+  <data name="LdapUser_Caption" xml:space="preserve">
+    <value>LDAP</value>
+  </data>
+  <data name="LdapUser_Description" xml:space="preserve">
+    <value>You are logged in with your company credentials.</value>
+  </data>
+  <data name="LdapUser_SignInMessage" xml:space="preserve">
+    <value>Sign in with your company credentials</value>
+  </data>
 </root>
