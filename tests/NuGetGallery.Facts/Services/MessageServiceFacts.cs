@@ -388,7 +388,7 @@ namespace NuGetGallery
                 messageService.MockAuthService
                     .Setup(a => a.DescribeCredential(cred))
                     .Returns(new CredentialViewModel() {
-                        AuthUI = new AuthenticatorUI("sign in", "Microsoft Account", "Microsoft Account")
+                        AuthUI = new AuthenticatorUI("sign in", "Microsoft Account", "Microsoft Account", "You can use this Microsoft account to sign in to NuGet.org")
                     });
 
                 messageService.SendCredentialRemovedNotice(user, cred);
@@ -433,7 +433,7 @@ namespace NuGetGallery
                 messageService.MockAuthService
                     .Setup(a => a.DescribeCredential(cred))
                     .Returns(new CredentialViewModel() {
-                        AuthUI = new AuthenticatorUI("sign in", "Microsoft Account", "Microsoft Account")
+                        AuthUI = new AuthenticatorUI("sign in", "Microsoft Account", "Microsoft Account", "You can use this Microsoft account to sign in to NuGet.org")
                     });
 
                 messageService.SendCredentialAddedNotice(user, cred);

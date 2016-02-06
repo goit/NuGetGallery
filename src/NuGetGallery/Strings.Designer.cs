@@ -447,6 +447,15 @@ namespace NuGetGallery {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to You can use this Microsoft account to sign in to NuGet.org.
+        /// </summary>
+        public static string MicrosoftAccount_Description {
+            get {
+                return ResourceManager.GetString("MicrosoftAccount_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Sign in with a Microsoft account.
         /// </summary>
         public static string MicrosoftAccount_SignInMessage {

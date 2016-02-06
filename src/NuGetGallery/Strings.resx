@@ -313,7 +313,7 @@ The {2} Team</value>
   </data>
   <data name="NuGetPackageReleaseVersionContainsOnlyNumerics" xml:space="preserve">
     <value>Package {0} invalid: the release label can not only contain numerics.</value>
-  </data>  
+  </data>
   <data name="CopyExternalPackages_PackageFileBlobAlreadyExists" xml:space="preserve">
     <value>SKIPPED! Package file blob {0} already exists</value>
   </data>
@@ -364,5 +364,8 @@ The {2} Team</value>
   </data>
   <data name="InvalidPortableFramework" xml:space="preserve">
     <value>The package framework '{0}' is not supported. Frameworks within the portable profile are not allowed to have profiles themselves.</value>
+  </data>
+  <data name="MicrosoftAccount_Description" xml:space="preserve">
+    <value>You can use this Microsoft account to sign in to NuGet.org</value>
   </data>
 </root>

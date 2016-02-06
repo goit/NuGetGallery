@@ -13,13 +13,15 @@ namespace NuGetGallery.Authentication.Providers
         public string SignInMessage { get; private set; }
         public string AccountNoun { get; private set; }
         public string Caption { get; private set; }
+        public string Description { get; set; }
         public string IconCssClass { get; set; }
 
-        public AuthenticatorUI(string signInMessage, string accountNoun, string caption)
+        public AuthenticatorUI(string signInMessage, string accountNoun, string caption, string description)
         {
             SignInMessage = signInMessage;
             AccountNoun = accountNoun;
             Caption = caption;
+            Description = description;
         }
     }
 }

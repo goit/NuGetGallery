@@ -31,7 +31,8 @@ namespace NuGetGallery.Authentication.Providers.MicrosoftAccount
             return new AuthenticatorUI(
                 Strings.MicrosoftAccount_SignInMessage,
                 Strings.MicrosoftAccount_AccountNoun,
-                Strings.MicrosoftAccount_Caption)
+                Strings.MicrosoftAccount_Caption,
+                Strings.MicrosoftAccount_Description)
                 {
                     IconCssClass = "icon-windows"
                 };
