@@ -5,26 +5,14 @@ using System.Web.Mvc;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Cookies;
+using NuGetGallery.Authentication.Providers.Cookie;
 using NuGetGallery.Configuration;
 using Owin;
 
 namespace NuGetGallery.Authentication.Providers.Ldap
 {
-    public class LdapUserAuthenticator : Authenticator
+    public class LdapUserAuthenticator : Authenticator<LdapAuthenticatorConfiguration>
     {
-        protected override void AttachToOwinApp(ConfigurationService config, IAppBuilder app)
-        {
-        }
-
-        protected internal override AuthenticatorConfiguration CreateConfigObject()
-        {
-            return new AuthenticatorConfiguration()
-            {
-                AuthenticationType = AuthenticationTypes.LdapUser,
-                Enabled = true
-            };
-        }
-
         public override AuthenticatorUI GetUI()
         {
             return new AuthenticatorUI(

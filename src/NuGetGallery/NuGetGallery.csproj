@@ -464,6 +464,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.DirectoryServices.Protocols" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.Net" />
     <Reference Include="System.Net.Http" />
@@ -599,6 +600,7 @@
     <Compile Include="Areas\Admin\ViewModels\DeleteSearchResult.cs" />
     <Compile Include="Authentication\FeedOnlyModeException.cs" />
     <Compile Include="Authentication\Providers\Ldap\LdapAuthenticator.cs" />
+    <Compile Include="Authentication\Providers\Ldap\LdapAuthenticatorConfiguration.cs" />
     <Compile Include="Controllers\NuGetContext.cs" />
     <Compile Include="Extensions\DateTimeExtensions.cs" />
     <Compile Include="Diagnostics\PerfCounters.cs" />
@@ -1338,6 +1340,7 @@
     <Compile Include="Services\IAggregateStatsService.cs" />
     <Compile Include="Services\ISearchService.cs" />
     <Compile Include="Services\IUploadFileService.cs" />
+    <Compile Include="Services\NullLdapService.cs" />
     <Compile Include="Services\LdapService.cs" />
     <Compile Include="Services\LocalFileReference.cs" />
     <Compile Include="Services\NuGetExeDownloaderService.cs" />

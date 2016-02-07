@@ -26,11 +26,11 @@ namespace NuGetGallery.Authentication
         private readonly IAppConfiguration _config;
 
         protected AuthenticationService()
-            : this(null, null, null, AuditingService.None, Enumerable.Empty<Authenticator>())
+            : this(null, null, null, AuditingService.None, Enumerable.Empty<Authenticator>(), NullLdapService.Instance)
         {
         }
 
-        public AuthenticationService(IEntitiesContext entities, IAppConfiguration config, IDiagnosticsService diagnostics, AuditingService auditing, IEnumerable<Authenticator> providers)
+        public AuthenticationService(IEntitiesContext entities, IAppConfiguration config, IDiagnosticsService diagnostics, AuditingService auditing, IEnumerable<Authenticator> providers, ILdapService ldapService)
         {
             _credentialFormatters = new Dictionary<string, Func<string, string>>(StringComparer.OrdinalIgnoreCase) {
                 { "password", _ => Strings.CredentialType_Password },
@@ -44,7 +44,7 @@ namespace NuGetGallery.Authentication
             _trace = diagnostics.SafeGetSource("AuthenticationService");
             Authenticators = providers.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 
-            this.Ldap = new LdapService();
+            this.Ldap = ldapService;
         }
 
         public IEntitiesContext Entities { get; private set; }

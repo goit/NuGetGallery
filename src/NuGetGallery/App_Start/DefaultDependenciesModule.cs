@@ -18,6 +18,7 @@ using NuGetGallery.Configuration;
 using NuGetGallery.Diagnostics;
 using NuGetGallery.Infrastructure;
 using NuGetGallery.Infrastructure.Lucene;
+using NuGetGallery.Services;
 
 namespace NuGetGallery
 {
@@ -270,6 +271,11 @@ namespace NuGetGallery
                 .AsSelf()
                 .As<IDiagnosticsService>()
                 .SingleInstance();
+
+            builder.RegisterType<LdapService>()
+                .AsSelf()
+                .As<ILdapService>()
+                .InstancePerLifetimeScope();
         }
         
         private static void ConfigureSearch(ContainerBuilder builder, ConfigurationService configuration)
