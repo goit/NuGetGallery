@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Web.Mvc;
 using Moq;
 using Xunit;
@@ -50,8 +51,9 @@ namespace NuGetGallery.Controllers
                 var model = ResultAssert.IsView<LogOnViewModel>(result, viewName: "LogOn");
                 Assert.NotNull(model.SignIn);
                 Assert.NotNull(model.Register);
-                Assert.Equal(1, model.Providers.Count);
-                Assert.Equal("MicrosoftAccount", model.Providers[0].ProviderName);
+                Assert.Equal(2, model.Providers.Count);
+                Assert.True(model.Providers.Any(p => p.ProviderName == "MicrosoftAccount"));
+                Assert.True(model.Providers.Any(p => p.ProviderName == "LdapUser"));
             }
         }
 
