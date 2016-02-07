@@ -164,7 +164,8 @@ namespace NuGetGallery.Authentication
             var newUser = new User(username)
             {
                 EmailAllowed = true,
-                EmailAddress = emailAddress,
+                UnconfirmedEmailAddress = emailAddress,
+                EmailConfirmationToken = CryptographyService.GenerateToken(),
                 CreatedUtc = DateTime.UtcNow
             };
 
