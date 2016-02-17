@@ -12,5 +12,6 @@ namespace NuGetGallery.Authentication
         public static readonly string External = "External";
         public static readonly string LocalUser = "LocalUser";
         public static readonly string ApiKey = "ApiKey";
+        public static readonly string LdapUser = "LdapUser";
     }
 }

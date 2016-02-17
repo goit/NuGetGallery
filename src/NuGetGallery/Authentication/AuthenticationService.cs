@@ -12,8 +12,10 @@ using System.Web.Mvc;
 using Microsoft.Owin;
 using NuGetGallery.Auditing;
 using NuGetGallery.Authentication.Providers;
+using NuGetGallery.Authentication.Providers.Ldap;
 using NuGetGallery.Configuration;
 using NuGetGallery.Diagnostics;
+using NuGetGallery.Services;
 
 namespace NuGetGallery.Authentication
 {
@@ -24,11 +26,11 @@ namespace NuGetGallery.Authentication
         private readonly IAppConfiguration _config;
 
         protected AuthenticationService()
-            : this(null, null, null, AuditingService.None, Enumerable.Empty<Authenticator>())
+            : this(null, null, null, AuditingService.None, Enumerable.Empty<Authenticator>(), NullLdapService.Instance)
         {
         }
 
-        public AuthenticationService(IEntitiesContext entities, IAppConfiguration config, IDiagnosticsService diagnostics, AuditingService auditing, IEnumerable<Authenticator> providers)
+        public AuthenticationService(IEntitiesContext entities, IAppConfiguration config, IDiagnosticsService diagnostics, AuditingService auditing, IEnumerable<Authenticator> providers, ILdapService ldapService)
         {
             _credentialFormatters = new Dictionary<string, Func<string, string>>(StringComparer.OrdinalIgnoreCase) {
                 { "password", _ => Strings.CredentialType_Password },
@@ -41,11 +43,14 @@ namespace NuGetGallery.Authentication
             Auditing = auditing;
             _trace = diagnostics.SafeGetSource("AuthenticationService");
             Authenticators = providers.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+
+            this.Ldap = ldapService;
         }
 
         public IEntitiesContext Entities { get; private set; }
         public IDictionary<string, Authenticator> Authenticators { get; private set; }
         public AuditingService Auditing { get; private set; }
+        public ILdapService Ldap { get; private set; }
 
         public virtual async Task<AuthenticatedUser> Authenticate(string userNameOrEmail, string password)
         {
@@ -56,14 +61,32 @@ namespace NuGetGallery.Authentication
                 // Check if the user exists
                 if (user == null)
                 {
-                    _trace.Information("No such user: " + userNameOrEmail);
-                    return null;
+                    var ldapUser = this.Ldap.ValidateUsernameAndPassword(userNameOrEmail, password);
+
+                    if (ldapUser != null)
+                    {
+                        _trace.Information("Creating user from LDAP credentials: " + userNameOrEmail);
+                        var ldapCredential = CredentialBuilder.CreateExternalCredential(AuthenticationTypes.LdapUser, ldapUser.Username, ldapUser.Identity);
+                        return await this.Register(ldapUser.Username, ldapUser.Email, ldapCredential);
+                    }
+                    else
+                    {
+                        _trace.Information("No such user: " + userNameOrEmail);
+                        return null;
+                    }
                 }
 
                 // Validate the password
                 Credential matched;
                 if (!ValidatePasswordCredential(user.Credentials, password, out matched))
                 {
+                    var isValid = this.Ldap.ValidateCredentials(user.Credentials, password, out matched);
+                    if (isValid)
+                    {
+                        _trace.Verbose("Successfully authenticated '" + user.Username + "' with '" + matched.Type + "' credential");
+                        return new AuthenticatedUser(user, matched);
+                    }
+
                     _trace.Information("Password validation failed: " + userNameOrEmail);
                     return null;
                 }

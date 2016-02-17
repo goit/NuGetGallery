@@ -79,17 +79,12 @@
             </div>
             <p id="logon-separator">&mdash; or &mdash;</p>
         }
-        <h2>Sign in or register with a username and password</h2>
-        <div id="register">
-            <h3>Register</h3>
-            @Html.Partial("_Register", Model)
-        </div>
 
-        <div class="verticalSeparator"></div>
+        <h2>Sign in with your company credentials</h2>
 
         <div id="signIn">
-            <h3>Sign in</h3>
-            @Html.Partial("_SignIn", Model)
+            @Html.Partial("_SignInLdap", Model)
         </div>
+        <div class="verticalSeparator"></div>
     }
 </div>
