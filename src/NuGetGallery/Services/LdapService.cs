@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.DirectoryServices;
 using System.DirectoryServices.Protocols;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -44,7 +45,7 @@ namespace NuGetGallery.Services
                 connection.Credential = credential;
                 connection.Bind();
 
-                string filter = $"(&(objectClass=user)(objectCategory=user) (sAMAccountName={LdapEncode(username)}))";
+                string filter = string.Format(CultureInfo.InvariantCulture, "(&(objectClass=user)(objectCategory=user) (sAMAccountName={0}))", LdapEncode(username));
                 var attributes = new[] { "sAMAccountName", "displayName", "mail" };
                 SearchRequest searchRequest = new SearchRequest(baseDn, filter, SearchScope.Subtree, attributes);
 
