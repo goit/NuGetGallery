@@ -280,9 +280,9 @@
       <HintPath>..\..\packages\Microsoft.ApplicationInsights.WindowsServer.2.0.0-beta2\lib\net45\Microsoft.AI.WindowsServer.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.ApplicationInsights, Version=2.0.0.4189, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+    <Reference Include="Microsoft.ApplicationInsights, Version=2.0.0.4193, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Microsoft.ApplicationInsights.2.0.0-beta2\lib\net45\Microsoft.ApplicationInsights.dll</HintPath>
+      <HintPath>..\..\packages\Microsoft.ApplicationInsights.2.0.0-beta2\lib\net46\Microsoft.ApplicationInsights.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.ApplicationServer.Caching.Client, Version=101.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
