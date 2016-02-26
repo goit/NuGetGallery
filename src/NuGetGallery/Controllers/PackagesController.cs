@@ -8,19 +8,21 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Mail;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Caching;
 using System.Web.Mvc;
-using NuGet;
 using NuGet.Packaging;
 using NuGet.Versioning;
+using NuGetGallery.Areas.Admin;
 using NuGetGallery.AsyncFileUpload;
 using NuGetGallery.Configuration;
 using NuGetGallery.Filters;
 using NuGetGallery.Helpers;
 using NuGetGallery.Infrastructure.Lucene;
+using NuGetGallery.OData;
 using NuGetGallery.Packaging;
 using PoliteCaptcha;
 
@@ -45,6 +47,7 @@ namespace NuGetGallery
         private readonly ICacheService _cacheService;
         private readonly EditPackageService _editPackageService;
         private readonly IPackageDeleteService _packageDeleteService;
+        private readonly ISupportRequestService _supportRequestService;
 
         public PackagesController(
             IPackageService packageService,
@@ -58,7 +61,8 @@ namespace NuGetGallery
             IIndexingService indexingService,
             ICacheService cacheService,
             EditPackageService editPackageService,
-            IPackageDeleteService packageDeleteService)
+            IPackageDeleteService packageDeleteService,
+            ISupportRequestService supportRequestService)
         {
             _packageService = packageService;
             _uploadFileService = uploadFileService;
@@ -72,6 +76,7 @@ namespace NuGetGallery
             _cacheService = cacheService;
             _editPackageService = editPackageService;
             _packageDeleteService = packageDeleteService;
+            _supportRequestService = supportRequestService;
         }
 
         [Authorize]
@@ -92,7 +97,7 @@ namespace NuGetGallery
         [HttpPost]
         [RequiresAccountConfirmation("undo pending edits")]
         [ValidateAntiForgeryToken]
-        public virtual ActionResult UndoPendingEdits(string id, string version)
+        public virtual async Task<ActionResult> UndoPendingEdits(string id, string version)
         {
             var package = _packageService.FindPackageByIdAndVersion(id, version);
             if (package == null)
@@ -119,7 +124,7 @@ namespace NuGetGallery
                 try
                 {
                     _entitiesContext.DeleteOnCommit(result);
-                    _entitiesContext.SaveChanges();
+                    await _entitiesContext.SaveChangesAsync();
                     numOK += 1;
                 }
                 catch (DataException)
@@ -191,12 +196,12 @@ namespace NuGetGallery
 
             using (var uploadStream = uploadFile.InputStream)
             {
-                PackageReader packageReader;
+                PackageArchiveReader packageArchiveReader;
                 try
                 {
-                    packageReader = CreatePackage(uploadStream);
+                    packageArchiveReader = CreatePackage(uploadStream);
 
-                    _packageService.EnsureValid(packageReader);
+                    _packageService.EnsureValid(packageArchiveReader);
                 }
                 catch (InvalidPackageException ipex)
                 {
@@ -228,7 +233,7 @@ namespace NuGetGallery
                 }
 
                 NuspecReader nuspec;
-                var errors = ManifestValidator.Validate(packageReader.GetNuspec(), out nuspec).ToArray();
+                var errors = ManifestValidator.Validate(packageArchiveReader.GetNuspec(), out nuspec).ToArray();
                 if (errors.Length > 0)
                 {
                     foreach (var error in errors)
@@ -350,6 +355,16 @@ namespace NuGetGallery
             }
 
             q = (q ?? string.Empty).Trim();
+
+            // We are not going to SQL here anyway, but our request logs do show some attempts to SQL injection.
+            // The below code just fails out those requests early.
+            if (q.ToLowerInvariant().Contains("char(")
+                || q.ToLowerInvariant().Contains("union select")
+                || q.ToLowerInvariant().Contains("/*")
+                || q.ToLowerInvariant().Contains("--"))
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
 
             SearchResults results;
 
@@ -493,7 +508,7 @@ namespace NuGetGallery
         [HttpPost]
         [ValidateAntiForgeryToken]
         [ValidateSpamPrevention]
-        public virtual ActionResult ReportAbuse(string id, string version, ReportAbuseViewModel reportForm)
+        public virtual async Task<ActionResult> ReportAbuse(string id, string version, ReportAbuseViewModel reportForm)
         {
             // Html Encode the message
             reportForm.Message = System.Web.HttpUtility.HtmlEncode(reportForm.Message);
@@ -533,6 +548,13 @@ namespace NuGetGallery
                 CopySender = reportForm.CopySender,
                 Signature = reportForm.Signature
             };
+
+            var subject = $"Support Request for '{package.PackageRegistration.Id}' version {package.Version}";
+            var requestorEmailAddress = user != null ? user.EmailAddress : reportForm.Email;
+            var reason = EnumHelper.GetDescription(reportForm.Reason.Value);
+
+            await _supportRequestService.AddNewSupportRequestAsync(subject, reportForm.Message, requestorEmailAddress, reason, user, package);
+
             _messageService.ReportAbuse(request);
 
             TempData["Message"] = "Your abuse report has been sent to the gallery operators.";
@@ -544,7 +566,7 @@ namespace NuGetGallery
         [RequiresAccountConfirmation("contact support about your package")]
         [ValidateAntiForgeryToken]
         [ValidateSpamPrevention]
-        public virtual ActionResult ReportMyPackage(string id, string version, ReportAbuseViewModel reportForm)
+        public virtual async Task<ActionResult> ReportMyPackage(string id, string version, ReportAbuseViewModel reportForm)
         {
             // Html Encode the message
             reportForm.Message = System.Web.HttpUtility.HtmlEncode(reportForm.Message);
@@ -563,17 +585,24 @@ namespace NuGetGallery
             var user = GetCurrentUser();
             MailAddress from = user.ToMailAddress();
 
-            _messageService.ReportMyPackage(
-                new ReportPackageRequest
-                {
-                    FromAddress = from,
-                    Message = reportForm.Message,
-                    Package = package,
-                    Reason = EnumHelper.GetDescription(reportForm.Reason.Value),
-                    RequestingUser = user,
-                    Url = Url,
-                    CopySender = reportForm.CopySender
-                });
+            var request = new ReportPackageRequest
+            {
+                FromAddress = from,
+                Message = reportForm.Message,
+                Package = package,
+                Reason = EnumHelper.GetDescription(reportForm.Reason.Value),
+                RequestingUser = user,
+                Url = Url,
+                CopySender = reportForm.CopySender
+            };
+
+            var subject = $"Owner Support Request for '{package.PackageRegistration.Id}' version {package.Version}";
+            var requestorEmailAddress = user != null ? user.EmailAddress : reportForm.Email;
+            var reason = EnumHelper.GetDescription(reportForm.Reason.Value);
+
+            await _supportRequestService.AddNewSupportRequestAsync(subject, reportForm.Message, requestorEmailAddress, reason, user, package);
+
+            _messageService.ReportMyPackage(request);
 
             TempData["Message"] = "Your support request has been sent to the gallery operators.";
             return Redirect(Url.Package(id, version));
@@ -746,10 +775,10 @@ namespace NuGetGallery
         [HttpPost]
         [RequiresAccountConfirmation("unlist a package")]
         [ValidateAntiForgeryToken]
-        public virtual ActionResult UpdateListed(string id, string version, bool? listed)
+        public virtual async Task<ActionResult> UpdateListed(string id, string version, bool? listed)
         {
             // Edit does exactly the same thing that Delete used to do... REUSE ALL THE CODE!
-            return Edit(id, version, listed, Url.Package);
+            return await Edit(id, version, listed, Url.Package);
         }
 
         [Authorize]
@@ -788,7 +817,7 @@ namespace NuGetGallery
         [ValidateInput(false)] // Security note: Disabling ASP.Net input validation which does things like disallow angle brackets in submissions. See http://go.microsoft.com/fwlink/?LinkID=212874
         [ValidateAntiForgeryToken]
         [RequiresAccountConfirmation("edit a package")]
-        public virtual ActionResult Edit(string id, string version, EditPackageRequest formData, string returnUrl)
+        public virtual async Task<ActionResult> Edit(string id, string version, EditPackageRequest formData, string returnUrl)
         {
             var package = _packageService.FindPackageByIdAndVersion(id, version);
             if (package == null)
@@ -813,7 +842,7 @@ namespace NuGetGallery
                 try
                 {
                     _editPackageService.StartEditPackageRequest(package, formData.Edit, user);
-                    _entitiesContext.SaveChanges();
+                    await _entitiesContext.SaveChangesAsync();
                 }
                 catch (EntityException ex)
                 {
@@ -842,7 +871,7 @@ namespace NuGetGallery
 
         [Authorize]
         [RequiresAccountConfirmation("accept ownership of a package")]
-        public virtual ActionResult ConfirmOwner(string id, string username, string token)
+        public virtual async Task<ActionResult> ConfirmOwner(string id, string username, string token)
         {
             if (String.IsNullOrEmpty(token))
             {
@@ -865,7 +894,7 @@ namespace NuGetGallery
             }
 
             var user = GetCurrentUser();
-            ConfirmOwnershipResult result = _packageService.ConfirmPackageOwner(package, user, token);
+            ConfirmOwnershipResult result = await _packageService.ConfirmPackageOwnerAsync(package, user, token);
 
             var model = new PackageOwnerConfirmationModel
             {
@@ -876,7 +905,7 @@ namespace NuGetGallery
             return View(model);
         }
 
-        internal virtual ActionResult Edit(string id, string version, bool? listed, Func<Package, string> urlFactory)
+        internal virtual async Task<ActionResult> Edit(string id, string version, bool? listed, Func<Package, string> urlFactory)
         {
             var package = _packageService.FindPackageByIdAndVersion(id, version);
             if (package == null)
@@ -892,12 +921,12 @@ namespace NuGetGallery
             if (!(listed ?? false))
             {
                 action = "unlisted";
-                _packageService.MarkPackageUnlisted(package);
+                await _packageService.MarkPackageUnlistedAsync(package);
             }
             else
             {
                 action = "listed";
-                _packageService.MarkPackageListed(package);
+                await _packageService.MarkPackageListedAsync(package);
             }
             TempData["Message"] = String.Format(
                 CultureInfo.CurrentCulture,
@@ -968,7 +997,7 @@ namespace NuGetGallery
                     VersionTitle = packageMetadata.Title,
                 }
             };
-            
+
             return View(model);
         }
 
@@ -1039,8 +1068,8 @@ namespace NuGetGallery
 
                 // update relevant database tables
                 try
-                { 
-                    package = _packageService.CreatePackage(nugetPackage, packageStreamMetadata, currentUser, commitChanges: false);
+                {
+                    package = await _packageService.CreatePackageAsync(nugetPackage, packageStreamMetadata, currentUser, commitChanges: false);
                     Debug.Assert(package.PackageRegistration != null);
                 }
                 catch (EntityException ex)
@@ -1049,7 +1078,7 @@ namespace NuGetGallery
                     return Redirect(Url.UploadPackage());
                 }
 
-                _packageService.PublishPackage(package, commitChanges: false);
+                await _packageService.PublishPackageAsync(package, commitChanges: false);
 
                 if (pendEdit)
                 {
@@ -1059,17 +1088,17 @@ namespace NuGetGallery
 
                 if (!formData.Listed)
                 {
-                    _packageService.MarkPackageUnlisted(package, commitChanges: false);
+                    await _packageService.MarkPackageUnlistedAsync(package, commitChanges: false);
                 }
 
-                _autoCuratedPackageCmd.Execute(package, nugetPackage, commitChanges: false);
+                await _autoCuratedPackageCmd.ExecuteAsync(package, nugetPackage, commitChanges: false);
 
                 // save package to blob storage
                 uploadFile.Position = 0;
                 await _packageFileService.SavePackageFileAsync(package, uploadFile.AsSeekableStream());
 
                 // commit all changes to database as an atomic transaction
-                _entitiesContext.SaveChanges();
+                await _entitiesContext.SaveChangesAsync();
 
                 // tell Lucene to update index for the new package
                 _indexingService.UpdateIndex();
@@ -1084,13 +1113,13 @@ namespace NuGetGallery
             return RedirectToRoute(RouteName.DisplayPackage, new { package.PackageRegistration.Id, package.Version });
         }
 
-        private async Task<PackageReader> SafeCreatePackage(NuGetGallery.User currentUser, Stream uploadFile)
+        private async Task<PackageArchiveReader> SafeCreatePackage(NuGetGallery.User currentUser, Stream uploadFile)
         {
             Exception caught = null;
-            PackageReader packageReader = null;
+            PackageArchiveReader packageArchiveReader = null;
             try
             {
-                packageReader = CreatePackage(uploadFile);
+                packageArchiveReader = CreatePackage(uploadFile);
             }
             catch (InvalidPackageException ipex)
             {
@@ -1121,7 +1150,7 @@ namespace NuGetGallery
                 await _uploadFileService.DeleteUploadFileAsync(currentUser.Key);
             }
 
-            return packageReader;
+            return packageArchiveReader;
         }
 
         [Authorize]
@@ -1138,12 +1167,12 @@ namespace NuGetGallery
         [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public virtual ActionResult SetLicenseReportVisibility(string id, string version, bool visible)
+        public virtual async Task<ActionResult> SetLicenseReportVisibility(string id, string version, bool visible)
         {
-            return SetLicenseReportVisibility(id, version, visible, Url.Package);
+            return await SetLicenseReportVisibility(id, version, visible, Url.Package);
         }
 
-        internal virtual ActionResult SetLicenseReportVisibility(string id, string version, bool visible, Func<Package, string> urlFactory)
+        internal virtual async Task<ActionResult> SetLicenseReportVisibility(string id, string version, bool visible, Func<Package, string> urlFactory)
         {
             var package = _packageService.FindPackageByIdAndVersion(id, version);
             if (package == null)
@@ -1155,7 +1184,7 @@ namespace NuGetGallery
                 return new HttpStatusCodeResult(401, "Unauthorized");
             }
 
-            _packageService.SetLicenseReportVisibility(package, visible);
+            await _packageService.SetLicenseReportVisibilityAsync(package, visible);
 
             TempData["Message"] = String.Format(
                 CultureInfo.CurrentCulture,
@@ -1169,11 +1198,11 @@ namespace NuGetGallery
         }
 
         // this methods exist to make unit testing easier
-        protected internal virtual PackageReader CreatePackage(Stream stream)
+        protected internal virtual PackageArchiveReader CreatePackage(Stream stream)
         {
             try
             {
-                return new PackageReader(stream, leaveStreamOpen: true);
+                return new PackageArchiveReader(stream, leaveStreamOpen: true);
             }
             catch (Exception)
             {

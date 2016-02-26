@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data.Services;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
@@ -12,16 +11,13 @@ using System.Net.Mail;
 using System.Security;
 using System.Security.Claims;
 using System.Security.Principal;
-using System.ServiceModel.Activation;
 using System.Text;
 using System.Web;
 using System.Web.Mvc;
-using System.Web.Routing;
 using System.Web.WebPages;
 using Microsoft.Owin;
 using NuGet.Frameworks;
 using NuGet.Packaging;
-using NuGetGallery.Packaging;
 
 namespace NuGetGallery
 {
@@ -41,18 +37,6 @@ namespace NuGetGallery
             }
             output.MakeReadOnly();
             return output;
-        }
-
-        public static void MapServiceRoute(
-            this RouteCollection routes,
-            string routeName,
-            string routeUrl,
-            Type serviceType)
-        {
-            var serviceRoute = new ServiceRoute(routeUrl, new DataServiceHostFactory(), serviceType);
-            serviceRoute.Defaults = new RouteValueDictionary { { "serviceType", "odata" } };
-            serviceRoute.Constraints = new RouteValueDictionary { { "serviceType", "odata" } };
-            routes.Add(routeName, serviceRoute);
         }
 
         public static string ToStringOrNull(this object obj)
@@ -302,7 +286,12 @@ namespace NuGetGallery
                 {
                     sb.Append(" (");
 
-                    var profiles = frameworkName.GetShortFolderName().Replace("portable-", string.Empty).Split('+');
+                    var profiles = frameworkName.GetShortFolderName()
+                        .Replace("portable-", string.Empty)
+                        .Replace("portable40-", string.Empty)
+                        .Replace("portable45-", string.Empty)
+                        .Split('+');
+
                     sb.Append(String.Join(", ",
                         profiles.Select(s => NuGetFramework.Parse(s).ToFriendlyName(allowRecurseProfile: false))));
 
