@@ -314,10 +314,10 @@ namespace NuGetGallery
                     version = frameworkName.Version.ToString();
                 }
 
-                sb.AppendFormat("{0} {1}", frameworkName.Framework, version);
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{0} {1}", frameworkName.Framework, version);
                 if (!String.IsNullOrEmpty(frameworkName.Profile))
                 {
-                    sb.AppendFormat(" {0}", frameworkName.Profile);
+                    sb.AppendFormat(CultureInfo.InvariantCulture, " {0}", frameworkName.Profile);
                 }
             }
             return sb.ToString();
