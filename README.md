@@ -1,4 +1,4 @@
-[NuGet Gallery](http://nuget.org/) — Where packages are found 
+NuGet Gallery for Companies
 =======================================================================
 
 [![Build status](https://ci.appveyor.com/api/projects/status/6ob8lbutfecvi5n3/branch/master?svg=true)](https://ci.appveyor.com/project/NuGetteam/nugetgallery/branch/master)
