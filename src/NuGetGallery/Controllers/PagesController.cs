@@ -66,6 +66,8 @@ namespace NuGetGallery
                     Constants.ContentNames.TermsOfUse,
                     TimeSpan.FromDays(1));
             }
+
+            ViewBag.AppConfiguration = this.NuGetContext.Config.Current;
             return View();
         }
 

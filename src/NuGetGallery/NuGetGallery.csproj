@@ -1231,6 +1231,7 @@
     </Content>
     <Content Include="Areas\Admin\DynamicData\FieldTemplates\Url_Edit.ascx" />
     <Content Include="Areas\Admin\DynamicData\PageTemplates\ListDetails.aspx" />
+    <Content Include="Branding\Content\Layout.css" />
     <Content Include="Content\Images\icons\azuread_64_blue.png" />
     <Content Include="Content\Images\icons\azuread_64_white.png" />
     <Content Include="Content\themes\base\images\animated-overlay.gif" />
@@ -1443,6 +1444,9 @@
     <Content Include="Public\Blocked.html" />
     <Content Include="Scripts\d3.v3.js" />
     <Content Include="Scripts\d3.v3.min.js" />
+    <Content Include="Branding\Views\Shared\LayoutFooter.cshtml" />
+    <Content Include="Branding\Content\web.config" />
+    <Content Include="Branding\Views\Pages\Terms.cshtml" />
     <None Include="Scripts\jquery-1.11.0.intellisense.js" />
     <Content Include="Scripts\jquery-1.11.0.js" />
     <Content Include="Scripts\jquery-1.11.0.min.js" />

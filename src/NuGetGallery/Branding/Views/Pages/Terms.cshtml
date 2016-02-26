@@ -1,0 +1,13 @@
+﻿@using NuGetGallery.Configuration
+@{
+    ViewBag.Title = "Terms and Conditions";
+    IAppConfiguration c = ViewBag.AppConfiguration as IAppConfiguration;
+}
+<article class="policies">
+  <h1>NuGet Gallery Terms of Use</h1>
+
+  <h2>Legal Notices.</h2>
+  <p>The @c.Brand Web site <a href="@c.SiteRoot">@c.SiteRoot</a> (the "Web site") is provided by your company.
+    Please, follow your internal company policies.
+  </p>
+</article>
