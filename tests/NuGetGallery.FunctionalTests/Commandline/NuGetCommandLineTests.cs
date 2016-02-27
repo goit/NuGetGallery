@@ -36,17 +36,13 @@ namespace NuGetGallery.FunctionalTests.Commandline
         [Category("P0Tests")]
         public async Task DownloadPackageWithNuGetCommandLineTest()
         {
-            // Temporary work around for the SSL issue, which keeps the upload tests from working on sites with cloudapp.net
-            if (UrlHelper.BaseUrl.Contains("nugettest.org") || UrlHelper.BaseUrl.Contains("nuget.org"))
-            {
-                string packageId = Constants.TestPackageId; //try to down load a pre-defined test package.
-                _clientSdkHelper.ClearLocalPackageFolder(packageId);
+            string packageId = Constants.TestPackageId; //try to down load a pre-defined test package.
+            _clientSdkHelper.ClearLocalPackageFolder(packageId);
 
-                var result = await _commandlineHelper.InstallPackageAsync(packageId, UrlHelper.V2FeedRootUrl, Environment.CurrentDirectory);
+            var result = await _commandlineHelper.InstallPackageAsync(packageId, UrlHelper.V2FeedRootUrl, Environment.CurrentDirectory);
 
-                Assert.True(result.ExitCode == 0, Constants.PackageDownloadFailureMessage);
-                Assert.True(_clientSdkHelper.CheckIfPackageInstalled(packageId), Constants.PackageInstallFailureMessage);
-            }
+            Assert.True(result.ExitCode == 0, Constants.PackageDownloadFailureMessage);
+            Assert.True(_clientSdkHelper.CheckIfPackageInstalled(packageId), Constants.PackageInstallFailureMessage);
         }
 
         [Fact]
@@ -55,10 +51,7 @@ namespace NuGetGallery.FunctionalTests.Commandline
         [Category("P0Tests")]
         public async Task UploadPackageWithNuGetCommandLineTest()
         {
-            if (UrlHelper.BaseUrl.Contains("nugettest.org") || UrlHelper.BaseUrl.Contains("nuget.org"))
-            {
-                await _clientSdkHelper.UploadNewPackageAndVerify(DateTime.Now.Ticks.ToString());
-            }
+            await _clientSdkHelper.UploadNewPackageAndVerify(DateTime.Now.Ticks.ToString());
         }
 
         [Fact]
@@ -67,28 +60,25 @@ namespace NuGetGallery.FunctionalTests.Commandline
         [Category("P0Tests")]
         public async Task UploadAndDownLoadPackageWithMinClientVersion()
         {
-            if (UrlHelper.BaseUrl.Contains("nugettest.org") || UrlHelper.BaseUrl.Contains("nuget.org"))
+            string packageId = DateTime.Now.Ticks + "PackageWithDotCsNames.Cs";
+            string version = "1.0.0";
+            string packageFullPath = await _packageCreationHelper.CreatePackageWithMinClientVersion(packageId, version, "2.3");
+
+            var processResult = await _commandlineHelper.UploadPackageAsync(packageFullPath, UrlHelper.V2FeedPushSourceUrl);
+
+            Assert.True(processResult.ExitCode == 0, Constants.UploadFailureMessage);
+
+            var packageVersionExistsInSource = _clientSdkHelper.CheckIfPackageVersionExistsInSource(packageId, version, UrlHelper.V2FeedRootUrl);
+            var userMessage = string.Format(Constants.PackageNotFoundAfterUpload, packageId, UrlHelper.V2FeedRootUrl);
+            Assert.True(packageVersionExistsInSource, userMessage);
+
+            //Delete package from local disk so once it gets uploaded
+            if (File.Exists(packageFullPath))
             {
-                string packageId = DateTime.Now.Ticks + "PackageWithDotCsNames.Cs";
-                string version = "1.0.0";
-                string packageFullPath = await _packageCreationHelper.CreatePackageWithMinClientVersion(packageId, version, "2.3");
-
-                var processResult = await _commandlineHelper.UploadPackageAsync(packageFullPath, UrlHelper.V2FeedPushSourceUrl);
-
-                Assert.True(processResult.ExitCode == 0, Constants.UploadFailureMessage);
-
-                var packageVersionExistsInSource = _clientSdkHelper.CheckIfPackageVersionExistsInSource(packageId, version, UrlHelper.V2FeedRootUrl);
-                var userMessage = string.Format(Constants.PackageNotFoundAfterUpload, packageId, UrlHelper.V2FeedRootUrl);
-                Assert.True(packageVersionExistsInSource, userMessage);
-
-                //Delete package from local disk so once it gets uploaded
-                if (File.Exists(packageFullPath))
-                {
-                    File.Delete(packageFullPath);
-                    Directory.Delete(Path.GetFullPath(Path.GetDirectoryName(packageFullPath)), true);
-                }
-                _clientSdkHelper.DownloadPackageAndVerify(packageId);
+                File.Delete(packageFullPath);
+                Directory.Delete(Path.GetFullPath(Path.GetDirectoryName(packageFullPath)), true);
             }
+            _clientSdkHelper.DownloadPackageAndVerify(packageId);
         }
     }
 }
