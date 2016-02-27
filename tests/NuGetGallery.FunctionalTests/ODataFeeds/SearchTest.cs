@@ -40,6 +40,7 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
         {
             var requestUrl = feedRootUrl + @"Search()?$filter=IsLatestVersion&$skip=0&$top=10&searchTerm='web%20helpers'&targetFramework='net40'&includePrerelease=false";
             TestOutputHelper.WriteLine("Request: GET " + requestUrl);
+            var expectedPackageUrl = feedRootUrl + "package/microsoft-web-helpers/";
 
             var request = WebRequest.Create(requestUrl);
             var response = (HttpWebResponse) await request.GetResponseAsync();
@@ -52,8 +53,8 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
                 responseText = await sr.ReadToEndAsync();
             }
 
-            Assert.True(responseText.Contains(@"<title type=""text"">" + title + @"</title>"), "The expected package title wasn't found in the feed.  Feed contents: " + responseText);
-            Assert.True(responseText.Contains(@"<content type=""application/zip"" src=""" + feedRootUrl + "package/microsoft-web-helpers/"), "The expected package URL wasn't found in the feed.  Feed contents: " + responseText);
+            Assert.True(responseText.Contains(@"<title type=""text"">" + title + @"</title>"), "The expected package title '"+ title + "' wasn't found in the feed.  Feed contents: " + responseText);
+            Assert.True(responseText.Contains(@"<content type=""application/zip"" src=""" + expectedPackageUrl), "The expected package URL '"+ expectedPackageUrl +"' wasn't found in the feed.  Feed contents: " + responseText);
             Assert.False(responseText.Contains(@"jquery"), "The feed contains non-matching package names.  Feed contents: " + responseText);
         }
     }
