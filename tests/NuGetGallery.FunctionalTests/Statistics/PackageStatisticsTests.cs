@@ -28,6 +28,7 @@ namespace NuGetGallery.FunctionalTests.Statistics
         [Description("Verify the webresponse for stats/downloads/last6weeks/ returns all 6 fields")]
         [Priority(1)]
         [Category("P1Tests")]
+        [Category(Constants.Category.StatisticsService)]
         public async Task PackageFeedStatsSanityTest()
         {
             var request = WebRequest.Create(UrlHelper.V2FeedRootUrl + @"stats/downloads/last6weeks/");
@@ -56,6 +57,7 @@ namespace NuGetGallery.FunctionalTests.Statistics
         [Description("Verify the webresponse for stats/downloads/last6weeks/ contains the right amount of packages")]
         [Priority(2)]
         [Category("P2Tests")]
+        [Category(Constants.Category.StatisticsService)]
         public async Task PackageFeedCountParameterTest()
         {
             var request = WebRequest.Create(UrlHelper.V2FeedRootUrl + @"stats/downloads/last6weeks/");
@@ -93,6 +95,7 @@ namespace NuGetGallery.FunctionalTests.Statistics
         [Fact]
         [Description("Verify the result is Accepted after sending a bogus request to Metrices Service endpoint")]
         [Priority(1)]
+        [Category(Constants.Category.StatisticsService)]
         public async Task SendBogusToMetricsEndPoint()
         {
             string basics = "\"title\": \"Sample Konfabulator Widget\"," + "\"name\": \"main_window\"," + "\"width\": 500," + "\"height\": 500,";

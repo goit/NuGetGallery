@@ -99,6 +99,7 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
         [Description("Verify the most downloaded package list returned by the feed is the same with that shown on the statistics page")]
         [Priority(1)]
         [Category("P1Tests")]
+        [Category(Constants.Category.StatisticsService)]
         public async Task PackageFeedSortingTest()
         {
             var request = WebRequest.Create(UrlHelper.V2FeedRootUrl + @"stats/downloads/last6weeks/");
