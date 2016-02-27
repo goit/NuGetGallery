@@ -55,7 +55,7 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
 
             Assert.True(responseText.Contains(@"<title type=""text"">" + title + @"</title>"), "The expected package title '"+ title + "' wasn't found in the feed.  Feed contents: " + responseText);
             Assert.True(responseText.Contains(@"<content type=""application/zip"" src=""" + expectedPackageUrl), "The expected package URL '"+ expectedPackageUrl +"' wasn't found in the feed.  Feed contents: " + responseText);
-            Assert.False(responseText.Contains(@"jquery"), "The feed contains non-matching package names.  Feed contents: " + responseText);
+            Assert.False(responseText.Contains(@"ContentFilesExample"), "The feed contains non-matching package names.  Feed contents: " + responseText);
         }
     }
 }
