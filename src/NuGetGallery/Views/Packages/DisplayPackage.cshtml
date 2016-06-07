@@ -98,17 +98,19 @@
         </ul>
     </nav>
 
-    <div class="stat">
-        <ul class="share-buttons">
-            @{
-                var encodedText = Url.Encode(string.Format("Check out {0} on #NuGet.", Model.Id));
-            }
-            <li><a href="https://www.facebook.com/sharer/sharer.php?u=@absolutePackageUrl&t=@encodedText" target="_blank" title="Share on Facebook"><i class="icon-facebook"></i></a></li>
-            <li><a href="https://twitter.com/intent/tweet?url=@absolutePackageUrl&text=@encodedText" target="_blank" title="Tweet this package"><i class="icon-twitter"></i></a></li>
-        </ul>
-        <p class="stat-label">Share on Social Networks</p>
-    </div>
-
+    @if (Config.Features.DisplaySocialShareButtons)
+    {
+        <div class="stat">
+            <ul class="share-buttons">
+                @{
+                    var encodedText = Url.Encode(string.Format("Check out {0} on #NuGet.", Model.Id));
+                }
+                <li><a href="https://www.facebook.com/sharer/sharer.php?u=@absolutePackageUrl&t=@encodedText" target="_blank" title="Share on Facebook"><i class="icon-facebook"></i></a></li>
+                <li><a href="https://twitter.com/intent/tweet?url=@absolutePackageUrl&text=@encodedText" target="_blank" title="Tweet this package"><i class="icon-twitter"></i></a></li>
+            </ul>
+            <p class="stat-label">Share on Social Networks</p>
+        </div>
+    }
 
     @* ** FEATURE: License Reports ** *@
     @if (Config.Features.FriendlyLicenses || User.IsAdministrator())

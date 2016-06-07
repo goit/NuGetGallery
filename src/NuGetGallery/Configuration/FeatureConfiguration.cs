@@ -16,5 +16,12 @@ namespace NuGetGallery.Configuration
         [DefaultValue(true)] // Default: Enabled
         [Description("Displays reports on license data")]
         public virtual bool FriendlyLicenses { get; set; }
+
+        /// <summary>
+        /// Gets a boolean indicating if social networks share buttons show be displayed.
+        /// </summary>
+        [DefaultValue(true)] // Default: Enabled
+        [Description("Displays social networks share buttons")]
+        public virtual bool DisplaySocialShareButtons { get; set; }
     }
 }
