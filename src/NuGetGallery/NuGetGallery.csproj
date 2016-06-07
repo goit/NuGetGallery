@@ -1581,6 +1581,8 @@
     <Content Include="Views\Pages\Terms.cshtml" />
     <Content Include="Views\Pages\About.cshtml" />
     <Content Include="Views\Authentication\_SignInLdap.cshtml" />
+    <Content Include="Views\Packages\_InstallBadgeNuget.cshtml" />
+    <Content Include="Views\Packages\_InstallBadgeChocolatey.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <CodeAnalysisDictionary Include="Properties\CodeAnalysisDictionary.xml" />

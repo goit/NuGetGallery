@@ -242,29 +242,13 @@
 
     @if (!Model.Deleted)
     {
-        <p>
-            To install @Model.Title, run the following command in the <a href="https://docs.nuget.org/docs/start-here/using-the-package-manager-console">
-                Package Manager Console
-            </a>
-        </p>
-        <div class="nuget-badge">
-            <p>
-                <code>
-                    Install-Package @Model.Id
-                    @if (!Model.LatestVersion || !Model.Listed)
-                    {
-                        <text> -Version @Model.Version</text>
-                    }
-                    @if (Model.Prerelease)
-                    {
-                        <text> -Pre </text>
-                    }
-                </code>
-            </p>
-        </div>
-        if (!String.IsNullOrEmpty(Model.MinClientVersion))
+        if (Model.Tags.Contains("chocolatey"))
         {
-            <p>Requires NuGet @Model.MinClientVersion or higher.</p>
+            @Html.Partial("_InstallBadgeChocolatey", Model)
+        }
+        else
+        {
+            @Html.Partial("_InstallBadgeNuget", Model)
         }
     }
 

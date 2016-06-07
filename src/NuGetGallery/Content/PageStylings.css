@@ -106,7 +106,8 @@
 
 /* NuGet Badge (Display Package) */
 
-.nuget-badge code {
+.nuget-badge code,
+.chocolatey-badge code {
     -moz-border-radius: 5px;
     -webkit-border-radius: 5px;
     background-color: #202020;
@@ -123,6 +124,9 @@
 
     .nuget-badge code::before {
         content: "PM> ";
+    }
+    .chocolatey-badge code::before {
+        content: "C:\\> ";
     }
 
 /* Messages on package page (Display Package) */
