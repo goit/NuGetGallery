@@ -15,6 +15,7 @@ using System.Text;
 using System.Web;
 using System.Web.Mvc;
 using System.Web.WebPages;
+using MarkdownSharp;
 using Microsoft.Owin;
 using NuGet.Frameworks;
 using NuGet.Packaging;
@@ -66,6 +67,18 @@ namespace NuGetGallery
                 return obj.ToString();
             }
             return String.Empty;
+        }
+
+        public static IHtmlString ToMarkdownSafe(this string text)
+        {
+            if (text == null)
+            {
+                return new HtmlString("");
+            }
+
+            var md = new Markdown();
+            var html = md.Transform(text);
+            return new HtmlString(html);
         }
 
         public static IEnumerable<PackageDependency> AsPackageDependencyEnumerable(this IEnumerable<PackageDependencyGroup> dependencyGroups)
