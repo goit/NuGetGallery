@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 using System.Web.Mvc;
 using System.Web.Routing;
-using MvcHaack.Ajax;
 using RouteMagic;
 
 namespace NuGetGallery
@@ -74,8 +73,11 @@ namespace NuGetGallery
                 RouteName.StatisticsPackageDownloadsByVersion,
                 "stats/packages/{id}",
                 new { controller = "Statistics", action = "PackageDownloadsByVersion" });
-           
-            routes.Add(new JsonRoute("json/{controller}"));
+
+            routes.MapRoute(
+                RouteName.JsonApi,
+                "json/{action}",
+                new { controller = "JsonApi" });
 
             routes.MapRoute(
                 RouteName.Contributors,
@@ -115,22 +117,23 @@ namespace NuGetGallery
             routes.MapRoute(
                 RouteName.CancelUpload,
                 "packages/cancel-upload",
-                new { controller = "Packages", action = "CancelUpload"});
+                new { controller = "Packages", action = "CancelUpload" });
 
             routes.MapRoute(
                 RouteName.PackageOwnerConfirmation,
                 "packages/{id}/owners/{username}/confirm/{token}",
                 new { controller = "Packages", action = "ConfirmOwner" });
 
-            // We need the following two routes (rather than just one) due to Routing's 
+            // We need the following two routes (rather than just one) due to Routing's
             // Consecutive Optional Parameter bug. :(
             var packageDisplayRoute = routes.MapRoute(
                 RouteName.DisplayPackage,
                 "packages/{id}/{version}",
-                new { 
-                    controller = "packages", 
-                    action = "DisplayPackage", 
-                    version = UrlParameter.Optional 
+                new
+                {
+                    controller = "packages",
+                    action = "DisplayPackage",
+                    version = UrlParameter.Optional
                 },
                 new { version = new VersionRouteConstraint() });
 
@@ -139,7 +142,7 @@ namespace NuGetGallery
                 "packages/{id}/{version}/EnableLicenseReport",
                 new { controller = "Packages", action = "SetLicenseReportVisibility", visible = true },
                 new { version = new VersionRouteConstraint() });
-            
+
             routes.MapRoute(
                 RouteName.PackageDisableLicenseReport,
                 "packages/{id}/{version}/DisableLicenseReport",
@@ -230,16 +233,11 @@ namespace NuGetGallery
                 RouteName.ConfirmAccount,
                 "account/confirm/{username}/{token}",
                 new { controller = "Users", action = "Confirm" });
-
+            
             routes.MapRoute(
-                RouteName.SubscribeToEmails,
-                "account/subscribe",
-                new { controller = "Users", action = "ChangeEmailSubscription", subscribe = true });
-
-            routes.MapRoute(
-                RouteName.UnsubscribeFromEmails,
-                "account/unsubscribe",
-                new { controller = "Users", action = "ChangeEmailSubscription", subscribe = false });
+                RouteName.ChangeEmailSubscription,
+                "account/subscription/change",
+                new { controller = "Users", action = "ChangeEmailSubscription" });
 
             routes.MapRoute(
                 RouteName.Account,
@@ -271,26 +269,33 @@ namespace NuGetGallery
                 "curated-feeds/{curatedFeedName}/curated-packages",
                 new { controller = "CuratedPackages", action = "CuratedPackages" });
 
+            routes.MapRoute(
+                RouteName.Downloads,
+                "downloads",
+                new { controller = "Pages", action = "Downloads" });
+
             // TODO : Most of the routes are essentially of the format api/v{x}/*. We should refactor the code to vary them by the version.
             // V1 Routes
-            // If the push url is /api/v1 then NuGet.Core would ping the path to resolve redirection. 
+            // If the push url is /api/v1 then NuGet.Core would ping the path to resolve redirection.
             routes.MapRoute(
                 "v1" + RouteName.VerifyPackageKey,
                 "api/v1/verifykey/{id}/{version}",
-                new { 
-                    controller = "Api", 
-                    action = "VerifyPackageKey", 
-                    id = UrlParameter.Optional, 
-                    version = UrlParameter.Optional 
+                new
+                {
+                    controller = "Api",
+                    action = "VerifyPackageKey",
+                    id = UrlParameter.Optional,
+                    version = UrlParameter.Optional
                 });
 
             var downloadRoute = routes.MapRoute(
                 "v1" + RouteName.DownloadPackage,
                 "api/v1/package/{id}/{version}",
-                defaults: new { 
-                    controller = "Api", 
-                    action = "GetPackageApi", 
-                    version = UrlParameter.Optional 
+                defaults: new
+                {
+                    controller = "Api",
+                    action = "GetPackageApi",
+                    version = UrlParameter.Optional
                 },
                 constraints: new { httpMethod = new HttpMethodConstraint("GET") });
 
@@ -370,7 +375,8 @@ namespace NuGetGallery
             routes.MapRoute(
                 "v2" + RouteName.VerifyPackageKey,
                 "api/v2/verifykey/{id}/{version}",
-                new {
+                new
+                {
                     controller = "Api",
                     action = "VerifyPackageKey",
                     id = UrlParameter.Optional,
@@ -421,12 +427,6 @@ namespace NuGetGallery
                 RouteName.StatisticsDownloadsApi,
                 "api/v2/stats/downloads/last6weeks",
                 defaults: new { controller = "Api", action = "StatisticsDownloadsApi" },
-                constraints: new { httpMethod = new HttpMethodConstraint("GET") });
-
-            routes.MapRoute(
-                RouteName.ServiceAlert,
-                "api/v2/service-alert",
-                defaults: new { controller = "Api", action = "ServiceAlert" },
                 constraints: new { httpMethod = new HttpMethodConstraint("GET") });
 
             routes.MapRoute(

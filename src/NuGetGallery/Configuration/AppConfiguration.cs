@@ -10,10 +10,11 @@ namespace NuGetGallery.Configuration
 {
     public class AppConfiguration : IAppConfiguration
     {
-        public bool HasWorker { get; set; }
-
         [DefaultValue("Development")]
         public string Environment { get; set; }
+
+        [DefaultValue("")]
+        public string WarningBanner { get; set; }
 
         /// <summary>
         /// Gets a setting indicating if SSL is required for all operations once logged in.
@@ -51,11 +52,6 @@ namespace NuGetGallery.Configuration
         /// Gets the @type for the Autocomplete endpoint
         /// </summary>
         public string AutocompleteServiceResourceType { get; set; }
-
-        /// <summary>
-        /// Gets the URI to the metrics service
-        /// </summary>
-        public Uri MetricsServiceUri { get; set; }
 
         /// <summary>
         /// Gets a boolean indicating if the site requires that email addresses be confirmed
@@ -164,6 +160,13 @@ namespace NuGetGallery.Configuration
         /// </summary>
         [DefaultValue(true)]
         public bool AutoUpdateSearchIndex { get; set; }
+
+        /// <summary>
+        /// Gets a string indicating which authentication provider(s) are supported for administrators. 
+        /// When specified, the gallery will ensure admin users are logging in using any of the specified authentication providers.
+        /// Blank means any authentication provider can be used by administrators.
+        /// </summary>
+        public string EnforcedAuthProviderForAdmin { get; set; }
 
         /// <summary>
         /// Gets a string containing the PagerDuty account name.

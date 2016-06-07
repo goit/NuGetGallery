@@ -116,6 +116,33 @@ namespace NuGetGallery {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Azure Active Directory Account.
+        /// </summary>
+        public static string AzureActiveDirectory_AccountNoun {
+            get {
+                return ResourceManager.GetString("AzureActiveDirectory_AccountNoun", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Azure Active Directory.
+        /// </summary>
+        public static string AzureActiveDirectory_Caption {
+            get {
+                return ResourceManager.GetString("AzureActiveDirectory_Caption", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sign in with Azure Active Directory.
+        /// </summary>
+        public static string AzureActiveDirectory_SignInMessage {
+            get {
+                return ResourceManager.GetString("AzureActiveDirectory_SignInMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to You canceled your email address change request..
         /// </summary>
         public static string CancelEmailAddress {
@@ -573,6 +600,15 @@ namespace NuGetGallery {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The package is invalid and cannot be uploaded. One or more files, such as &apos;{0}&apos; have a date in the future..
+        /// </summary>
+        public static string PackageEntryFromTheFuture {
+            get {
+                return ResourceManager.GetString("PackageEntryFromTheFuture", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A package with id &apos;{0}&apos; and version &apos;{1}&apos; already exists and cannot be modified..
         /// </summary>
         public static string PackageExistsAndCannotBeModified {
@@ -744,11 +780,20 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The NuGet package contains an invaid .nuspec file. The error encountered was:&apos;{0}&apos;. Correct the error and try again..
+        ///   Looks up a localized string similar to The NuGet package contains an invalid .nuspec file. The error encountered was:&apos;{0}&apos;. Correct the error and try again..
         /// </summary>
         public static string UploadPackage_InvalidNuspec {
             get {
                 return ResourceManager.GetString("UploadPackage_InvalidNuspec", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The NuGet package is invalid. The error encountered was:&apos;{0}&apos;. Correct the error and try again..
+        /// </summary>
+        public static string UploadPackage_InvalidPackage {
+            get {
+                return ResourceManager.GetString("UploadPackage_InvalidPackage", resourceCulture);
             }
         }
         

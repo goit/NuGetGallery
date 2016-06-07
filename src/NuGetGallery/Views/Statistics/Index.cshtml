@@ -8,7 +8,7 @@
     <p>
         <strong>NOTE: </strong>Download statistics displayed on this page reflect the actual package downloads from the NuGet.org site. This is an indicator of usage. However,
         many package installs, particularly those of widely depended upon packages, will actually be done from a client machine's local NuGet cache, as a result these numbers should
-        not be taken as exact usage. 
+        not be taken as exact usage.
     </p>
 </section>
 
@@ -28,7 +28,7 @@
                 foreach (var item in Model.DownloadPackagesSummary)
                 {
                     index++;
-                    
+
                     <tr>
                         <td class="statistics-rank">@index</td>
                         <td><a href="@Url.Package(item.PackageId)">@item.PackageId</a></td>
@@ -57,7 +57,7 @@
                 foreach (var item in Model.DownloadPackageVersionsSummary)
                 {
                     index++;
-                    
+
                     <tr>
                         <td class="statistics-rank">@index</td>
                         <td><a href="@Url.Package(item.PackageId)">@item.PackageId</a></td>
@@ -99,22 +99,22 @@
         </table>
     </div>
 }
-@if (Model.IsLast6MonthsAvailable)
+@if (Model.IsLast6WeeksAvailable)
 {
     <div class="statistics-layout" id="downloads-per-month">
-        <h1 class="statistics-report-title">Packages&nbsp;Downloaded&nbsp;Per&nbsp;Month</h1>
+        <h1 class="statistics-report-title">Downloaded&nbsp;Packages&nbsp;Per&nbsp;Week&nbsp;(Last&nbsp;6&nbsp;Weeks)</h1>
         <table class="stats-table">
             <thead>
                 <tr>
-                    <th class="first">Month</th><th>Downloads</th>
+                    <th class="first">Week</th><th>Downloads</th>
                 </tr>
             </thead>
             <tbody>
             @{
-                foreach (var item in Model.Last6Months)
+                foreach (var item in Model.Last6Weeks)
                 {
                     <tr>
-                        <td>@Model.DisplayMonth(item.Year, item.MonthOfYear)</td>
+                        <td>@Model.DisplayWeek(item.Year, item.WeekOfYear)</td>
                         <td class="statistics-number">@Model.DisplayDownloads(item.Downloads)</td>
                     </tr>
                 }

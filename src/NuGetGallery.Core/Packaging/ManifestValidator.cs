@@ -78,6 +78,31 @@ namespace NuGetGallery.Packaging
                     Strings.Manifest_InvalidVersion,
                     version));
             }
+            if (packageMetadata.Version.IsSemVer200())
+            {
+
+                yield return new ValidationResult(String.Format(
+                    CultureInfo.CurrentCulture,
+                    Strings.Manifest_InvalidVersionSemVer200,
+                    packageMetadata.Version.ToFullString()));
+            }
+
+            // Check framework reference groups
+            var frameworkReferenceGroups = packageMetadata.GetFrameworkReferenceGroups();
+            if (frameworkReferenceGroups != null)
+            {
+                foreach (var frameworkReferenceGroup in frameworkReferenceGroups)
+                {
+                    var isUnsupportedFramework = frameworkReferenceGroup?.TargetFramework?.IsUnsupported;
+                    if (isUnsupportedFramework.HasValue && isUnsupportedFramework.Value)
+                    {
+                        yield return new ValidationResult(String.Format(
+                            CultureInfo.CurrentCulture,
+                            Strings.Manifest_TargetFrameworkNotSupported,
+                            frameworkReferenceGroup?.TargetFramework?.ToString()));
+                    }
+                }
+            }
 
             // Check dependency groups
             var dependencyGroups = packageMetadata.GetDependencyGroups();
@@ -87,6 +112,16 @@ namespace NuGetGallery.Packaging
                 {
                     // Keep track of duplicates
                     var dependencyIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    // Verify frameworks
+                    var isUnsupportedFramework = dependencyGroup.TargetFramework?.IsUnsupported;
+                    if (isUnsupportedFramework.HasValue && isUnsupportedFramework.Value)
+                    {
+                        yield return new ValidationResult(String.Format(
+                            CultureInfo.CurrentCulture,
+                            Strings.Manifest_TargetFrameworkNotSupported,
+                            dependencyGroup.TargetFramework?.ToString()));
+                    }
 
                     // Verify package id's
                     foreach (var dependency in dependencyGroup.Packages)

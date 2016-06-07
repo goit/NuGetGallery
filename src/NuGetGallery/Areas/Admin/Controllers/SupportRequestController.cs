@@ -18,28 +18,34 @@ namespace NuGetGallery.Areas.Admin.Controllers
     public class SupportRequestController
         : AdminControllerBase
     {
+        private const int _defaultTakeCount = 30;
         private readonly ISupportRequestService _supportRequestService;
+        private readonly IUserService _userService;
+
         private readonly JsonSerializerSettings _defaultJsonSerializerSettings = new JsonSerializerSettings
         {
             ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
             Formatting = Formatting.None
         };
 
-        public SupportRequestController(ISupportRequestService supportRequestService)
+        public SupportRequestController(
+            ISupportRequestService supportRequestService,
+            IUserService userService)
         {
             _supportRequestService = supportRequestService;
+            _userService = userService;
         }
 
         public ViewResult Admins()
         {
             var viewModel = new SupportRequestAdminsViewModel();
-            viewModel.Admins.AddRange(_supportRequestService.GetAllAdmins());
+            viewModel.Admins.AddRange(_supportRequestService.GetAllAdmins().Select(a => new SupportRequestAdminViewModel(a)));
             return View(viewModel);
         }
 
         public ActionResult GetAdmins()
         {
-            var admins = _supportRequestService.GetAllAdmins();
+            var admins = _supportRequestService.GetAllAdmins().Select(a => new SupportRequestAdminViewModel(a));
 
             var data = JsonConvert.SerializeObject(admins, _defaultJsonSerializerSettings);
             return Json(data, JsonRequestBehavior.AllowGet);
@@ -120,7 +126,7 @@ namespace NuGetGallery.Areas.Admin.Controllers
             }
         }
 
-        public ActionResult Filter(int pageNumber = 1, int take = 5, int? assignedToId = null, int? issueStatusId = null, string reason = null)
+        public async Task<ActionResult> Filter(int pageNumber = 1, int take = _defaultTakeCount, int? assignedToId = null, int? issueStatusId = null, string reason = null)
         {
             if (pageNumber <= 0)
             {
@@ -129,10 +135,10 @@ namespace NuGetGallery.Areas.Admin.Controllers
 
             if (take < 1)
             {
-                take = 5;
+                take = _defaultTakeCount;
             }
 
-            var issues = GetSupportRequests(pageNumber, take, assignedToId, reason, issueStatusId).Take(take).ToList();
+            var issues = (await GetSupportRequestsAsync(pageNumber, take, assignedToId, reason, issueStatusId)).Take(take).ToList();
             var totalCount = _supportRequestService.GetIssueCount(assignedToId, reason, issueStatusId);
 
             int maxPage;
@@ -156,7 +162,7 @@ namespace NuGetGallery.Areas.Admin.Controllers
             return Json(data, JsonRequestBehavior.AllowGet);
         }
 
-        public ActionResult Index(int pageNumber = 1, int take = 5, int? assignedToId = null, int? issueStatusId = null, string reason = null)
+        public async Task<ActionResult> Index(int pageNumber = 1, int take = _defaultTakeCount, int? assignedToId = null, int? issueStatusId = null, string reason = null)
         {
             if (pageNumber <= 0)
             {
@@ -165,10 +171,8 @@ namespace NuGetGallery.Areas.Admin.Controllers
 
             if (take < 1)
             {
-                take = 5;
+                take = _defaultTakeCount;
             }
-
-            var galleryUserName = GetLoggedInUser();
 
             var viewModel = new SupportRequestsViewModel();
 
@@ -191,18 +195,9 @@ namespace NuGetGallery.Areas.Admin.Controllers
                 viewModel.MaxPage = totalCount / take + 1;
             }
 
-            var issues = GetSupportRequests(pageNumber, take, assignedToId, reason, issueStatusId);
+            var issues = await GetSupportRequestsAsync(pageNumber, take, assignedToId, reason, issueStatusId);
 
-            // show current admin issues first,
-            // then sort by issue status, showing new first, then working, then waiting for customer, then resolved,
-            // then sort by creation time descending
-            var orderedIssues = issues
-                .OrderByDescending(i => i.AssignedToGalleryUsername == galleryUserName)
-                .ThenBy(i => SortByIssueStatus(i.IssueStatusId))
-                .ThenByDescending(i => i.Issue.CreatedDate)
-                .ToList();
-
-            viewModel.Issues.AddRange(orderedIssues);
+            viewModel.Issues.AddRange(issues);
 
             return View(viewModel);
         }
@@ -214,24 +209,7 @@ namespace NuGetGallery.Areas.Admin.Controllers
             return Json(historyEntries, JsonRequestBehavior.AllowGet);
         }
 
-        private static int SortByIssueStatus(int issueStatusId)
-        {
-            if (issueStatusId == IssueStatusKeys.New)
-            {
-                return -1;
-            }
-            else if (issueStatusId == IssueStatusKeys.Working)
-            {
-                return 0;
-            }
-            else if (issueStatusId == IssueStatusKeys.WaitingForCustomer)
-            {
-                return 1;
-            }
-            else return 2;
-        }
-
-        private List<SupportRequestViewModel> GetSupportRequests(int pageNumber = 1, int take = 5, int? assignedTo = null, string reason = null, int? issueStatusId = null)
+        private async Task<List<SupportRequestViewModel>> GetSupportRequestsAsync(int pageNumber = 1, int take = _defaultTakeCount, int? assignedTo = null, string reason = null, int? issueStatusId = null)
         {
             if (pageNumber <= 0)
             {
@@ -240,11 +218,12 @@ namespace NuGetGallery.Areas.Admin.Controllers
 
             if (take < 1)
             {
-                take = 5;
+                take = _defaultTakeCount;
             }
 
             var skip = (pageNumber - 1) * take;
-            var issues = _supportRequestService.GetIssues(assignedTo, reason, issueStatusId);
+            var galleryUsername = GetLoggedInUser();
+            var issues = _supportRequestService.GetIssues(assignedTo, reason, issueStatusId, galleryUsername);
             IEnumerable<Issue> pagedIssues = issues;
 
             if (skip > 0)
@@ -254,17 +233,18 @@ namespace NuGetGallery.Areas.Admin.Controllers
 
             pagedIssues = pagedIssues.Take(take);
 
+            var enumerable = pagedIssues as IList<Issue> ?? pagedIssues.ToList();
+            var distinctUserKeys = enumerable.Select(i => i.UserKey).Where(i => i.HasValue).Select(i => i.Value).Distinct().ToList();
+            var userEmails = await _userService.GetEmailAddressesForUserKeysAsync(distinctUserKeys);
+
             var results = new List<SupportRequestViewModel>();
 
-            foreach (var issue in pagedIssues)
+            foreach (var issue in enumerable)
             {
-                var viewModel = new SupportRequestViewModel();
-                viewModel.AssignedTo = issue.AssignedToId;
+                var viewModel = new SupportRequestViewModel(issue);
                 viewModel.AssignedToGalleryUsername = issue.AssignedTo?.GalleryUsername;
-                viewModel.IssueStatusId = issue.IssueStatusId;
                 viewModel.IssueStatusName = issue.IssueStatus.Name;
-                viewModel.Issue = issue;
-                viewModel.Issue.SiteRoot = VerifyAndFixTrailingSlash(viewModel.Issue.SiteRoot);
+                viewModel.UserEmail = issue.UserKey.HasValue ? userEmails[issue.UserKey.Value] : string.Empty;
 
                 results.Add(viewModel);
             }
@@ -275,16 +255,6 @@ namespace NuGetGallery.Areas.Admin.Controllers
         private string GetLoggedInUser()
         {
             return User.Identity.Name;
-        }
-
-        private static string VerifyAndFixTrailingSlash(string url)
-        {
-            var result = url;
-            if (!string.IsNullOrEmpty(url) && url.Substring(url.Length - 1, 1) != "/")
-            {
-                result = string.Concat(url, "/");
-            }
-            return result;
         }
 
         private List<SelectListItem> GetListOfIssueStatuses(int? selectedIssueKey = -1)
@@ -302,6 +272,8 @@ namespace NuGetGallery.Areas.Admin.Controllers
 
                 items.Add(item);
             }
+
+            items.Add(new SelectListItem { Text = "Unresolved", Value = IssueStatusKeys.Unresolved.ToString(CultureInfo.InvariantCulture) });
 
             return items;
         }

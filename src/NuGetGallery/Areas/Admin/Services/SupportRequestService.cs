@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Entity;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
@@ -50,9 +51,9 @@ namespace NuGetGallery.Areas.Admin
             return _supportRequestDbContext.Histories.Where(h => h.IssueId == id).ToList();
         }
 
-        public IReadOnlyCollection<Issue> GetIssues(int ? assignedTo = null, string reason = null, int? issueStatusId = null)
+        public IReadOnlyCollection<Issue> GetIssues(int? assignedTo = null, string reason = null, int? issueStatusId = null, string galleryUsername = null)
         {
-            var queryable = GetFilteredIssuesQueryable(assignedTo, reason, issueStatusId);
+            var queryable = GetFilteredIssuesQueryable(assignedTo, reason, issueStatusId, galleryUsername);
 
             return queryable.ToList();
         }
@@ -133,11 +134,27 @@ namespace NuGetGallery.Areas.Admin
                 if (currentIssue.AssignedToId != assignedToId)
                 {
                     var previousAssignedUsername = currentIssue.AssignedTo?.GalleryUsername ?? "unassigned";
-                    var newAssignedUsername = assignedToId.HasValue ? GetAdminByKey(assignedToId.Value).GalleryUsername : "unassigned";
+                    string newAssignedUsername;
+                    if (assignedToId.HasValue)
+                    {
+                        var admin = GetAdminByKey(assignedToId.Value);
+                        if (admin == null)
+                        {
+                            newAssignedUsername = "unassigned";
+                        }
+                        else
+                        {
+                            newAssignedUsername = admin.GalleryUsername;
+                            currentIssue.AssignedToId = assignedToId;
+                        }
+                    }
+                    else
+                    {
+                        newAssignedUsername = "unassigned";
+                    }
 
                     comments += $"Reassigned issue from '{previousAssignedUsername}' to '{newAssignedUsername}'.\r\n";
 
-                    currentIssue.AssignedToId = assignedToId;
                     currentIssue.AssignedTo = null;
 
                     changesDetected = true;
@@ -169,7 +186,7 @@ namespace NuGetGallery.Areas.Admin
                     {
                         IssueId = issueId,
                         EditedBy = editedBy,
-                        AssignedToId = assignedToId,
+                        AssignedToId = assignedToId == -1 ? null : assignedToId,
                         EntryDate = DateTime.UtcNow,
                         IssueStatusId = issueStatusId,
                         Comments = comments
@@ -292,9 +309,12 @@ namespace NuGetGallery.Areas.Admin
             return issue?.Name;
         }
 
-        private IQueryable<Issue> GetFilteredIssuesQueryable(int? assignedTo = null, string reason = null, int? issueStatusId = null)
+        private IQueryable<Issue> GetFilteredIssuesQueryable(int? assignedTo = null, string reason = null, int? issueStatusId = null, string galleryUsername = null)
         {
-            IQueryable<Issue> queryable = _supportRequestDbContext.Issues;
+            IQueryable<Issue> queryable = _supportRequestDbContext.Issues
+                .Include(i => i.HistoryEntries)
+                .Include(i => i.IssueStatus)
+                .Include(i => i.AssignedTo);
 
             if (assignedTo.HasValue && assignedTo.Value != -1)
             {
@@ -314,10 +334,35 @@ namespace NuGetGallery.Areas.Admin
 
             if (issueStatusId.HasValue)
             {
-                queryable = queryable.Where(r => r.IssueStatusId == issueStatusId);
+                if (issueStatusId == IssueStatusKeys.Unresolved)
+                {
+                    queryable = queryable.Where(r => r.IssueStatusId < IssueStatusKeys.Resolved);
+                }
+                else
+                {
+                    queryable = queryable.Where(r => r.IssueStatusId == issueStatusId);
+                }
             }
 
-            return queryable;
+            // show current admin issues first,
+            // then sort by issue status, showing new first, then working, then waiting for customer, then resolved,
+            // then sort by creation time descending
+            IOrderedQueryable<Issue> orderedQueryable;
+            if (!string.IsNullOrEmpty(galleryUsername))
+            {
+                orderedQueryable = queryable
+                    .OrderByDescending(i => i.AssignedTo.GalleryUsername == galleryUsername)
+                    .ThenBy(i => i.IssueStatusId == IssueStatusKeys.New ? 1 : (i.IssueStatusId == IssueStatusKeys.Working ? 2 : (i.IssueStatusId == IssueStatusKeys.WaitingForCustomer ? 3 : 4)))
+                    .ThenByDescending(i => i.CreatedDate);
+            }
+            else
+            {
+                orderedQueryable = queryable
+                    .OrderBy(i => i.IssueStatusId == IssueStatusKeys.New ? 1 : (i.IssueStatusId == IssueStatusKeys.Working ? 2 : (i.IssueStatusId == IssueStatusKeys.WaitingForCustomer ? 3 : 4)))
+                    .ThenByDescending(i => i.CreatedDate);
+            }
+
+            return orderedQueryable;
         }
 
         private Models.Admin GetAdminByKey(int key)

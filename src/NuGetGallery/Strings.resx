@@ -305,15 +305,18 @@ The {2} Team</value>
   <data name="CancelEmailAddress" xml:space="preserve">
     <value>You canceled your email address change request.</value>
   </data>
+  <data name="UploadPackage_InvalidPackage" xml:space="preserve">
+    <value>The NuGet package is invalid. The error encountered was:'{0}'. Correct the error and try again.</value>
+  </data>
   <data name="UploadPackage_InvalidNuspec" xml:space="preserve">
-    <value>The NuGet package contains an invaid .nuspec file. The error encountered was:'{0}'. Correct the error and try again.</value>
+    <value>The NuGet package contains an invalid .nuspec file. The error encountered was:'{0}'. Correct the error and try again.</value>
   </data>
   <data name="NuGetPackageReleaseVersionWithDot" xml:space="preserve">
     <value>Package {0} invalid: no '.' allowed in the release label.</value>
   </data>
   <data name="NuGetPackageReleaseVersionContainsOnlyNumerics" xml:space="preserve">
     <value>Package {0} invalid: the release label can not only contain numerics.</value>
-  </data>
+  </data>  
   <data name="CopyExternalPackages_PackageFileBlobAlreadyExists" xml:space="preserve">
     <value>SKIPPED! Package file blob {0} already exists</value>
   </data>
@@ -365,19 +368,16 @@ The {2} Team</value>
   <data name="InvalidPortableFramework" xml:space="preserve">
     <value>The package framework '{0}' is not supported. Frameworks within the portable profile are not allowed to have profiles themselves.</value>
   </data>
-  <data name="MicrosoftAccount_Description" xml:space="preserve">
-    <value>You can use this Microsoft account to sign in to NuGet.org</value>
+  <data name="PackageEntryFromTheFuture" xml:space="preserve">
+    <value>The package is invalid and cannot be uploaded. One or more files, such as '{0}' have a date in the future.</value>
   </data>
-  <data name="LdapUser_AccountNoun" xml:space="preserve">
-    <value>LDAP</value>
+  <data name="AzureActiveDirectory_SignInMessage" xml:space="preserve">
+    <value>Sign in with Azure Active Directory</value>
   </data>
-  <data name="LdapUser_Caption" xml:space="preserve">
-    <value>LDAP</value>
+  <data name="AzureActiveDirectory_AccountNoun" xml:space="preserve">
+    <value>Azure Active Directory Account</value>
   </data>
-  <data name="LdapUser_Description" xml:space="preserve">
-    <value>You are logged in with your company credentials.</value>
-  </data>
-  <data name="LdapUser_SignInMessage" xml:space="preserve">
-    <value>Sign in with your company credentials</value>
+  <data name="AzureActiveDirectory_Caption" xml:space="preserve">
+    <value>Azure Active Directory</value>
   </data>
 </root>

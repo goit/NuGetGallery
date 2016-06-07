@@ -6,41 +6,25 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Web.Hosting;
 using System.Web.Mvc;
 using System.Web.UI;
 using Newtonsoft.Json.Linq;
+using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Versioning;
-using NuGetGallery.Configuration;
 using NuGetGallery.Filters;
 using NuGetGallery.Packaging;
+using PackageIdValidator = NuGetGallery.Packaging.PackageIdValidator;
 
 namespace NuGetGallery
 {
     public partial class ApiController
         : AppController
     {
-        private const string IdKey = "id";
-        private const string VersionKey = "version";
-        private const string IpAddressKey = "ipAddress";
-        private const string UserAgentKey = "userAgent";
-        private const string OperationKey = "operation";
-        private const string DependentPackageKey = "dependentPackage";
-        private const string ProjectGuidsKey = "projectGuids";
-        private const string MetricsDownloadEventMethod = "/DownloadEvent";
-        private const string ContentTypeJson = "application/json";
-
-        private static readonly HttpClient HttpClient = new HttpClient();
-
-        private readonly IAppConfiguration _config;
-
         public IEntitiesContext EntitiesContext { get; set; }
         public INuGetExeDownloaderService NugetExeDownloaderService { get; set; }
         public IPackageFileService PackageFileService { get; set; }
@@ -52,6 +36,7 @@ namespace NuGetGallery
         public IIndexingService IndexingService { get; set; }
         public IAutomaticallyCuratePackageCommand AutoCuratePackage { get; set; }
         public IStatusService StatusService { get; set; }
+        public IMessageService MessageService { get; set; }
 
         protected ApiController()
         {
@@ -68,7 +53,7 @@ namespace NuGetGallery
             ISearchService searchService,
             IAutomaticallyCuratePackageCommand autoCuratePackage,
             IStatusService statusService,
-            IAppConfiguration config)
+            IMessageService messageService)
         {
             EntitiesContext = entitiesContext;
             PackageService = packageService;
@@ -81,7 +66,7 @@ namespace NuGetGallery
             SearchService = searchService;
             AutoCuratePackage = autoCuratePackage;
             StatusService = statusService;
-            _config = config;
+            MessageService = messageService;
         }
 
         public ApiController(
@@ -96,8 +81,8 @@ namespace NuGetGallery
             IAutomaticallyCuratePackageCommand autoCuratePackage,
             IStatusService statusService,
             IStatisticsService statisticsService,
-            IAppConfiguration config)
-            : this(entitiesContext, packageService, packageFileService, userService, nugetExeDownloaderService, contentService, indexingService, searchService, autoCuratePackage, statusService, config)
+            IMessageService messageService)
+            : this(entitiesContext, packageService, packageFileService, userService, nugetExeDownloaderService, contentService, indexingService, searchService, autoCuratePackage, statusService, messageService)
         {
             StatisticsService = statisticsService;
         }
@@ -156,71 +141,10 @@ namespace NuGetGallery
 
             }
 
-            // If metrics service is specified we post the data to it asynchronously. Else we skip stats.
-            if (_config != null && _config.MetricsServiceUri != null)
-            {
-                try
-                {
-                    var userHostAddress = Request.UserHostAddress;
-                    var userAgent = Request.UserAgent;
-                    var operation = Request.Headers["NuGet-Operation"];
-                    var dependentPackage = Request.Headers["NuGet-DependentPackage"];
-                    var projectGuids = Request.Headers["NuGet-ProjectGuids"];
-
-                    HostingEnvironment.QueueBackgroundWorkItem(cancellationToken => PostDownloadStatistics(id, version, userHostAddress, userAgent, operation, dependentPackage, projectGuids, cancellationToken));
-                }
-                catch (Exception ex)
-                {
-                    QuietLog.LogHandledException(ex);
-                }
-            }
-
             return await PackageFileService.CreateDownloadPackageActionResultAsync(
                 HttpContext.Request.Url,
                 id, version);
         }
-
-        private static JObject GetJObject(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids)
-        {
-            var jObject = new JObject();
-            jObject.Add(IdKey, id);
-            jObject.Add(VersionKey, version);
-            if (!String.IsNullOrEmpty(ipAddress)) jObject.Add(IpAddressKey, ipAddress);
-            if (!String.IsNullOrEmpty(userAgent)) jObject.Add(UserAgentKey, userAgent);
-            if (!String.IsNullOrEmpty(operation)) jObject.Add(OperationKey, operation);
-            if (!String.IsNullOrEmpty(dependentPackage)) jObject.Add(DependentPackageKey, dependentPackage);
-            if (!String.IsNullOrEmpty(projectGuids)) jObject.Add(ProjectGuidsKey, projectGuids);
-
-            return jObject;
-        }
-
-        private async Task PostDownloadStatistics(string id, string version, string ipAddress, string userAgent, string operation, string dependentPackage, string projectGuids, CancellationToken cancellationToken)
-        {
-            if (_config == null || _config.MetricsServiceUri == null || cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-
-            try
-            {
-                var jObject = GetJObject(id, version, ipAddress, userAgent, operation, dependentPackage, projectGuids);
-
-                await HttpClient.PostAsync(new Uri(_config.MetricsServiceUri, MetricsDownloadEventMethod), new StringContent(jObject.ToString(), Encoding.UTF8, ContentTypeJson), cancellationToken);
-            }
-            catch (WebException ex)
-            {
-                QuietLog.LogHandledException(ex);
-            }
-            catch (AggregateException ex)
-            {
-                QuietLog.LogHandledException(ex.InnerException ?? ex);
-            }
-            catch (TaskCanceledException)
-            {
-                // noop
-            }
-        }
-
 
         [HttpGet]
         [ActionName("GetNuGetExeApi")]
@@ -292,76 +216,129 @@ namespace NuGetGallery
             var user = GetCurrentUser();
 
             using (var packageStream = ReadPackageFromRequest())
-            using (var packageToPush = new PackageArchiveReader(packageStream, leaveStreamOpen: false))
             {
-                NuspecReader nuspec = null;
                 try
                 {
-                    nuspec = packageToPush.GetNuspecReader();
-                }
-                catch (Exception ex)
-                {
-                    return new HttpStatusCodeWithBodyResult(HttpStatusCode.BadRequest, string.Format(
-                        CultureInfo.CurrentCulture,
-                        Strings.UploadPackage_InvalidNuspec,
-                        ex.Message));
-                }
-
-                if (nuspec.GetMinClientVersion() > Constants.MaxSupportedMinClientVersion)
-                {
-                    return new HttpStatusCodeWithBodyResult(HttpStatusCode.BadRequest, string.Format(
-                        CultureInfo.CurrentCulture,
-                        Strings.UploadPackage_MinClientVersionOutOfRange,
-                        nuspec.GetMinClientVersion()));
-                }
-
-                // Ensure that the user can push packages for this partialId.
-                var packageRegistration = PackageService.FindPackageRegistrationById(nuspec.GetId());
-                if (packageRegistration != null)
-                {
-                    if (!packageRegistration.IsOwner(user))
+                    using (var archive = new ZipArchive(packageStream, ZipArchiveMode.Read, leaveOpen: true))
                     {
-                        return new HttpStatusCodeWithBodyResult(HttpStatusCode.Forbidden, Strings.ApiKeyNotAuthorized);
+                        var reference = DateTime.UtcNow.AddDays(1); // allow "some" clock skew
+
+                        var entryInTheFuture = archive.Entries.FirstOrDefault(
+                            e => e.LastWriteTime.UtcDateTime > reference);
+
+                        if (entryInTheFuture != null)
+                        {
+                            return new HttpStatusCodeWithBodyResult(HttpStatusCode.BadRequest, string.Format(
+                               CultureInfo.CurrentCulture,
+                               Strings.PackageEntryFromTheFuture,
+                               entryInTheFuture.Name));
+                        }
                     }
 
-                    // Check if a particular Id-Version combination already exists. We eventually need to remove this check.
-                    string normalizedVersion = nuspec.GetVersion().ToNormalizedString();
-                    bool packageExists =
-                        packageRegistration.Packages.Any(
-                            p => String.Equals(
-                                p.NormalizedVersion,
-                                normalizedVersion,
-                                StringComparison.OrdinalIgnoreCase));
-
-                    if (packageExists)
+                    using (var packageToPush = new PackageArchiveReader(packageStream, leaveStreamOpen: false))
                     {
-                        return new HttpStatusCodeWithBodyResult(
-                            HttpStatusCode.Conflict,
-                            String.Format(CultureInfo.CurrentCulture, Strings.PackageExistsAndCannotBeModified,
-                                          nuspec.GetId(), nuspec.GetVersion().ToNormalizedStringSafe()));
+                        NuspecReader nuspec = null;
+                        try
+                        {
+                            nuspec = packageToPush.GetNuspecReader();
+                        }
+                        catch (Exception ex)
+                        {
+                            return new HttpStatusCodeWithBodyResult(HttpStatusCode.BadRequest, string.Format(
+                                CultureInfo.CurrentCulture,
+                                Strings.UploadPackage_InvalidNuspec,
+                                ex.Message));
+                        }
+
+                        if (nuspec.GetMinClientVersion() > Constants.MaxSupportedMinClientVersion)
+                        {
+                            return new HttpStatusCodeWithBodyResult(HttpStatusCode.BadRequest, string.Format(
+                                CultureInfo.CurrentCulture,
+                                Strings.UploadPackage_MinClientVersionOutOfRange,
+                                nuspec.GetMinClientVersion()));
+                        }
+
+                        // Ensure that the user can push packages for this partialId.
+                        var packageRegistration = PackageService.FindPackageRegistrationById(nuspec.GetId());
+                        if (packageRegistration != null)
+                        {
+                            if (!packageRegistration.IsOwner(user))
+                            {
+                                return new HttpStatusCodeWithBodyResult(HttpStatusCode.Forbidden,
+                                    Strings.ApiKeyNotAuthorized);
+                            }
+
+                            // Check if a particular Id-Version combination already exists. We eventually need to remove this check.
+                            string normalizedVersion = nuspec.GetVersion().ToNormalizedString();
+                            bool packageExists =
+                                packageRegistration.Packages.Any(
+                                    p => String.Equals(
+                                        p.NormalizedVersion,
+                                        normalizedVersion,
+                                        StringComparison.OrdinalIgnoreCase));
+
+                            if (packageExists)
+                            {
+                                return new HttpStatusCodeWithBodyResult(
+                                    HttpStatusCode.Conflict,
+                                    String.Format(CultureInfo.CurrentCulture, Strings.PackageExistsAndCannotBeModified,
+                                        nuspec.GetId(), nuspec.GetVersion().ToNormalizedStringSafe()));
+                            }
+                        }
+
+                        var packageStreamMetadata = new PackageStreamMetadata
+                        {
+                            HashAlgorithm = Constants.Sha512HashAlgorithmId,
+                            Hash = CryptographyService.GenerateHash(packageStream.AsSeekableStream()),
+                            Size = packageStream.Length,
+                        };
+
+                        var package =
+                            await
+                                PackageService.CreatePackageAsync(packageToPush, packageStreamMetadata, user,
+                                    commitChanges: false);
+                        await AutoCuratePackage.ExecuteAsync(package, packageToPush, commitChanges: false);
+                        await EntitiesContext.SaveChangesAsync();
+
+                        using (Stream uploadStream = packageStream)
+                        {
+                            uploadStream.Position = 0;
+                            await PackageFileService.SavePackageFileAsync(package, uploadStream.AsSeekableStream());
+                            IndexingService.UpdatePackage(package);
+                        }
+
+                        MessageService.SendPackageAddedNotice(package,
+                            Url.Action("DisplayPackage", "Packages", routeValues: new { id = package.PackageRegistration.Id, version = package.Version }, protocol: Request.Url.Scheme),
+                            Url.Action("ReportMyPackage", "Packages", routeValues: new { id = package.PackageRegistration.Id, version = package.Version }, protocol: Request.Url.Scheme),
+                            Url.Action("Account", "Users", routeValues: null, protocol: Request.Url.Scheme));
+
+                        return new HttpStatusCodeResult(HttpStatusCode.Created);
                     }
                 }
-
-                var packageStreamMetadata = new PackageStreamMetadata
+                catch (InvalidPackageException ex)
                 {
-                    HashAlgorithm = Constants.Sha512HashAlgorithmId,
-                    Hash = CryptographyService.GenerateHash(packageStream.AsSeekableStream()),
-                    Size = packageStream.Length,
-                };
-
-                var package = await PackageService.CreatePackageAsync(packageToPush, packageStreamMetadata, user, commitChanges: false);
-                await AutoCuratePackage.ExecuteAsync(package, packageToPush, commitChanges: false);
-                await EntitiesContext.SaveChangesAsync();
-
-                using (Stream uploadStream = packageStream)
+                    return BadRequestForExceptionMessage(ex);
+                }
+                catch (InvalidDataException ex)
                 {
-                    uploadStream.Position = 0;
-                    await PackageFileService.SavePackageFileAsync(package, uploadStream.AsSeekableStream());
-                    IndexingService.UpdatePackage(package);
+                    return BadRequestForExceptionMessage(ex);
+                }
+                catch (EntityException ex)
+                {
+                    return BadRequestForExceptionMessage(ex);
+                }
+                catch (FrameworkException ex)
+                {
+                    return BadRequestForExceptionMessage(ex);
                 }
             }
+        }
 
-            return new HttpStatusCodeResult(HttpStatusCode.Created);
+        private static ActionResult BadRequestForExceptionMessage(Exception ex)
+        {
+            return new HttpStatusCodeWithBodyResult(
+                HttpStatusCode.BadRequest,
+                string.Format(CultureInfo.CurrentCulture, Strings.UploadPackage_InvalidPackage, ex.Message));
         }
 
         [HttpDelete]
@@ -410,25 +387,6 @@ namespace NuGetGallery
             await PackageService.MarkPackageListedAsync(package);
             IndexingService.UpdatePackage(package);
             return new EmptyResult();
-        }
-
-        [OutputCache(Duration = 30, Location = OutputCacheLocation.ServerAndClient, VaryByParam = "*")]
-        public virtual async Task<ActionResult> ServiceAlert()
-        {
-            var markdownContentFileExtension = NuGetGallery.ContentService.MarkdownContentFileExtension;
-            string alertString = null;
-            var alert = await ContentService.GetContentItemAsync(Constants.ContentNames.Alert, markdownContentFileExtension, TimeSpan.Zero);
-            if (alert != null)
-            {
-                alertString = alert.ToString().Replace("</div>", " - Check our <a href=\"http://status.nuget.org\">status page</a> for updates.</div>");
-            }
-
-            if (String.IsNullOrEmpty(alertString) && _config.ReadOnlyMode)
-            {
-                var readOnly = await ContentService.GetContentItemAsync(Constants.ContentNames.ReadOnly, markdownContentFileExtension, TimeSpan.Zero);
-                alertString = readOnly?.ToString();
-            }
-            return Content(alertString, "text/html");
         }
 
         public virtual async Task<ActionResult> Team()

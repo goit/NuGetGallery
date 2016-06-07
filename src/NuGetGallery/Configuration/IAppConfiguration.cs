@@ -9,11 +9,6 @@ namespace NuGetGallery.Configuration
     public interface IAppConfiguration
     {
         /// <summary>
-        /// Gets a boolean inidicating if this environment provides a background worker.
-        /// </summary>
-        bool HasWorker { get; set; }
-
-        /// <summary>
         /// Gets the location in which the Lucene Index is stored
         /// </summary>
         LuceneIndexLocation LuceneIndexLocation { get; set; }
@@ -22,6 +17,11 @@ namespace NuGetGallery.Configuration
         /// Gets the name of the environment in which the gallery is deployed
         /// </summary>
         string Environment { get; set; }
+
+        /// <summary>
+        /// Gets the warning banner text 
+        /// </summary>
+        string WarningBanner { get; set; }
 
         /// <summary>
         /// Gets a setting indicating if SSL is required for all operations once logged in.
@@ -57,11 +57,6 @@ namespace NuGetGallery.Configuration
         /// Gets the @type for the Autocomplete endpoint
         /// </summary>
         string AutocompleteServiceResourceType { get; set; }
-
-        /// <summary>
-        /// Gets the URI to the metrics service
-        /// </summary>
-        Uri MetricsServiceUri { get; set; }
 
         /// <summary>
         /// Gets a boolean indicating if the site requires that email addresses be confirmed
@@ -152,6 +147,13 @@ namespace NuGetGallery.Configuration
         /// Gets a boolean indicating if the search index should be updated automatically in the background
         /// </summary>
         bool AutoUpdateSearchIndex { get; set; }
+
+        /// <summary>
+        /// Gets a string indicating which authentication provider(s) are supported for administrators. 
+        /// When specified, the gallery will ensure admin users are logging in using any of the specified authentication providers.
+        /// Blank means any authentication provider can be used by administrators.
+        /// </summary>
+        string EnforcedAuthProviderForAdmin { get; set; }
 
         /// <summary>
         /// Gets a string containing the PagerDuty account name.

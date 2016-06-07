@@ -151,11 +151,47 @@ namespace NuGetGallery {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The version &apos;{0}&apos; is not supported. The NuGet Gallery currently does not currently support Semantic Version 2.0 as it would break older NuGet clients..
+        /// </summary>
+        internal static string Manifest_InvalidVersionSemVer200 {
+            get {
+                return ResourceManager.GetString("Manifest_InvalidVersionSemVer200", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The package manifest is missing the Id field.
         /// </summary>
         internal static string Manifest_MissingId {
             get {
                 return ResourceManager.GetString("Manifest_MissingId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The target framework {0} is not supported..
+        /// </summary>
+        internal static string Manifest_TargetFrameworkNotSupported {
+            get {
+                return ResourceManager.GetString("Manifest_TargetFrameworkNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The version string is invalid..
+        /// </summary>
+        internal static string PackageMetadata_SetPropertiesFromMetadata_VersionStringInvalid {
+            get {
+                return ResourceManager.GetString("PackageMetadata_SetPropertiesFromMetadata_VersionStringInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The version string &apos;{0}&apos; is invalid..
+        /// </summary>
+        internal static string PackageMetadata_VersionStringInvalid {
+            get {
+                return ResourceManager.GetString("PackageMetadata_VersionStringInvalid", resourceCulture);
             }
         }
         

@@ -10,7 +10,6 @@ using System.Web.Http;
 using System.Web.Http.OData;
 using System.Web.Http.OData.Query;
 using NuGet.Frameworks;
-using NuGet.Services.Search.Client.Correlation;
 using NuGet.Versioning;
 using NuGetGallery.Configuration;
 using NuGetGallery.Infrastructure.Lucene;
@@ -23,7 +22,7 @@ using WebApi.OutputCache.V2;
 // ReSharper disable once CheckNamespace
 namespace NuGetGallery.Controllers
 {
-    public class ODataV2FeedController 
+    public class ODataV2FeedController
         : NuGetODataController
     {
         private const int MaxPageSize = SearchAdaptor.MaxPageSize;
@@ -33,7 +32,7 @@ namespace NuGetGallery.Controllers
         private readonly ISearchService _searchService;
 
         public ODataV2FeedController(
-            IEntityRepository<Package> packagesRepository, 
+            IEntityRepository<Package> packagesRepository,
             ConfigurationService configurationService,
             ISearchService searchService)
             : base(configurationService)
@@ -62,7 +61,6 @@ namespace NuGetGallery.Controllers
                 HijackableQueryParameters hijackableQueryParameters = null;
                 if (SearchHijacker.IsHijackable(options, out hijackableQueryParameters) && _searchService is ExternalSearchService)
                 {
-                    SetCorrelation();
                     var searchAdaptorResult = await SearchAdaptor.FindByIdAndVersionCore(
                         _searchService, GetTraditionalHttpContext().Request, packages,
                         hijackableQueryParameters.Id, hijackableQueryParameters.Version, curatedFeed: null);
@@ -118,6 +116,14 @@ namespace NuGetGallery.Controllers
         [CacheOutput(ServerTimeSpan = NuGetODataConfig.GetByIdAndVersionCacheTimeInSeconds, Private = true, ClientTimeSpan = NuGetODataConfig.GetByIdAndVersionCacheTimeInSeconds)]
         public async Task<IHttpActionResult> FindPackagesById(ODataQueryOptions<V2FeedPackage> options, [FromODataUri]string id)
         {
+            if (string.IsNullOrEmpty(id))
+            {
+                var emptyResult = Enumerable.Empty<Package>().AsQueryable()
+                    .ToV2FeedPackageQuery(GetSiteRoot(), _configurationService.Features.FriendlyLicenses);
+
+                return QueryResult(options, emptyResult, MaxPageSize);
+            }
+
             return await GetCore(options, id, version: null, return404NotFoundWhenNoResults: false);
         }
 
@@ -135,7 +141,6 @@ namespace NuGetGallery.Controllers
             // try the search service
             try
             {
-                SetCorrelation();
                 var searchAdaptorResult = await SearchAdaptor.FindByIdAndVersionCore(
                     _searchService, GetTraditionalHttpContext().Request, packages, id, version, curatedFeed: null);
 
@@ -147,6 +152,12 @@ namespace NuGetGallery.Controllers
 
                     // Add explicit Take() needed to limit search hijack result set size if $top is specified
                     var totalHits = packages.LongCount();
+
+                    if (totalHits == 0 && return404NotFoundWhenNoResults)
+                    {
+                        return NotFound();
+                    }
+
                     var pagedQueryable = packages
                         .Take(options.Top != null ? Math.Min(options.Top.Value, MaxPageSize) : MaxPageSize)
                         .ToV2FeedPackageQuery(GetSiteRoot(), _configurationService.Features.FriendlyLicenses);
@@ -189,8 +200,8 @@ namespace NuGetGallery.Controllers
         [HttpPost]
         [CacheOutput(ServerTimeSpan = NuGetODataConfig.SearchCacheTimeInSeconds, ClientTimeSpan = NuGetODataConfig.SearchCacheTimeInSeconds)]
         public async Task<IHttpActionResult> Search(
-            ODataQueryOptions<V2FeedPackage> options, 
-            [FromODataUri]string searchTerm = "", 
+            ODataQueryOptions<V2FeedPackage> options,
+            [FromODataUri]string searchTerm = "",
             [FromODataUri]string targetFramework = "",
             [FromODataUri]bool includePrerelease = false)
         {
@@ -210,7 +221,7 @@ namespace NuGetGallery.Controllers
                     targetFramework = targetFrameworkList[0];
                 }
             }
-            
+
             // Peform actual search
             var packages = _packagesRepository.GetAll()
                 .Include(p => p.PackageRegistration)
@@ -220,7 +231,6 @@ namespace NuGetGallery.Controllers
                 .AsNoTracking();
 
             // todo: search hijack should take options instead of manually parsing query options
-            SetCorrelation();
             var searchAdaptorResult = await SearchAdaptor.SearchCore(
                 _searchService, GetTraditionalHttpContext().Request, packages, searchTerm, targetFramework, includePrerelease, curatedFeed: null);
 
@@ -235,7 +245,7 @@ namespace NuGetGallery.Controllers
                 var pagedQueryable = query
                     .Take(options.Top != null ? Math.Min(options.Top.Value, MaxPageSize) : MaxPageSize)
                     .ToV2FeedPackageQuery(GetSiteRoot(), _configurationService.Features.FriendlyLicenses);
-                
+
                 return QueryResult(options, pagedQueryable, MaxPageSize, totalHits, (o, s, resultCount) =>
                 {
                     // The nuget.exe 2.x list command does not like the next link at the bottom when a $top is passed.
@@ -257,8 +267,8 @@ namespace NuGetGallery.Controllers
         [HttpGet]
         [CacheOutput(ServerTimeSpan = NuGetODataConfig.SearchCacheTimeInSeconds, ClientTimeSpan = NuGetODataConfig.SearchCacheTimeInSeconds)]
         public async Task<IHttpActionResult> SearchCount(
-            ODataQueryOptions<V2FeedPackage> options, 
-            [FromODataUri]string searchTerm = "", 
+            ODataQueryOptions<V2FeedPackage> options,
+            [FromODataUri]string searchTerm = "",
             [FromODataUri]string targetFramework = "",
             [FromODataUri]bool includePrerelease = false)
         {
@@ -273,9 +283,9 @@ namespace NuGetGallery.Controllers
             ODataQueryOptions<V2FeedPackage> options,
             [FromODataUri]string packageIds,
             [FromODataUri]string versions,
-            [FromODataUri]bool includePrerelease, 
-            [FromODataUri]bool includeAllVersions, 
-            [FromODataUri]string targetFrameworks = "", 
+            [FromODataUri]bool includePrerelease,
+            [FromODataUri]bool includeAllVersions,
+            [FromODataUri]string targetFrameworks = "",
             [FromODataUri]string versionConstraints = "")
         {
             if (string.IsNullOrEmpty(packageIds) || string.IsNullOrEmpty(versions))
@@ -388,15 +398,6 @@ namespace NuGetGallery.Controllers
                     .Select(g => g.OrderByDescending(p => NuGetVersion.Parse(p.Version)).First());
             }
             return updates;
-        }
-
-        private void SetCorrelation()
-        {
-            var correlatedSearchService = _searchService as ICorrelated;
-            if (correlatedSearchService != null)
-            {
-                correlatedSearchService.CorrelationIdProvider = new CorrelationIdProvider(Request);
-            }
         }
     }
 }

@@ -7,9 +7,11 @@ using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Caching;
@@ -196,6 +198,24 @@ namespace NuGetGallery
 
             using (var uploadStream = uploadFile.InputStream)
             {
+                using (var archive = new ZipArchive(uploadStream, ZipArchiveMode.Read, leaveOpen: true))
+                {
+                    var reference = DateTime.UtcNow.AddDays(1); // allow "some" clock skew
+
+                    var entryInTheFuture = archive.Entries.FirstOrDefault(
+                        e => e.LastWriteTime.UtcDateTime > reference);
+
+                    if (entryInTheFuture != null)
+                    {
+                        ModelState.AddModelError(String.Empty, string.Format(
+                           CultureInfo.CurrentCulture,
+                           Strings.PackageEntryFromTheFuture,
+                           entryInTheFuture.Name));
+
+                        return View();
+                    }
+                }
+
                 PackageArchiveReader packageArchiveReader;
                 try
                 {
@@ -294,7 +314,11 @@ namespace NuGetGallery
             {
                 return HttpNotFound();
             }
-            var model = new DisplayPackageViewModel(package);
+
+            var packageHistory = package.PackageRegistration.Packages.ToList()
+                .OrderByDescending(p => new NuGetVersion(p.Version));
+
+            var model = new DisplayPackageViewModel(package, packageHistory);
 
             if (package.IsOwner(User))
             {
@@ -322,6 +346,10 @@ namespace NuGetGallery
                     var searchFilter = SearchAdaptor.GetSearchFilter(
                             "id:\"" + package.PackageRegistration.Id + "\" AND version:\"" + package.Version + "\"",
                             1, null, SearchFilter.ODataSearchContext);
+
+                    searchFilter.IncludePrerelease = true;
+                    searchFilter.IncludeAllVersions = true;
+
                     var results = await externalSearchService.RawSearch(searchFilter);
 
                     isIndexed = results.Hits > 0;
@@ -1102,6 +1130,11 @@ namespace NuGetGallery
 
                 // tell Lucene to update index for the new package
                 _indexingService.UpdateIndex();
+
+                _messageService.SendPackageAddedNotice(package,
+                    Url.Action("DisplayPackage", "Packages", routeValues: new { id = package.PackageRegistration.Id, version = package.Version }, protocol: Request.Url.Scheme),
+                    Url.Action("ReportMyPackage", "Packages", routeValues: new { id = package.PackageRegistration.Id, version = package.Version }, protocol: Request.Url.Scheme),
+                    Url.Action("Account", "Users", routeValues: null, protocol: Request.Url.Scheme));
             }
 
             // delete the uploaded binary in the Uploads container

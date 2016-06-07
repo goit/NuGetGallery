@@ -39,6 +39,7 @@ namespace NuGetGallery.Packaging
         [InlineData("I_.Like.-Separators")]
         [InlineData("-StartWithSeparator")]
         [InlineData("EndWithSeparator.")]
+        [InlineData("$id$")]
         public void ValidatePackageIdInvalidIdReturnsFalse(string packageId)
         {
             // Act
@@ -47,7 +48,7 @@ namespace NuGetGallery.Packaging
             // Assert
             Assert.False(isValid);
         }
-        
+
         [Theory]
         [InlineData("  Invalid  . Woo   .")]
         [InlineData("(/.__.)/ \\(.__.\\)")]

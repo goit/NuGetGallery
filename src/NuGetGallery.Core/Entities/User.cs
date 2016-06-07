@@ -4,6 +4,7 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
 namespace NuGetGallery
@@ -36,6 +37,9 @@ namespace NuGetGallery
 
         public virtual ICollection<Role> Roles { get; set; }
         public bool EmailAllowed { get; set; }
+
+        [DefaultValue(true)]
+        public bool NotifyPackagePushed { get; set; }
 
         public bool Confirmed
         {
@@ -104,6 +108,11 @@ namespace NuGetGallery
         {
             return Credentials.Any(c =>
                 c.Type.StartsWith(CredentialTypes.Password.Prefix, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public bool IsInRole(string roleName)
+        {
+            return Roles.Any(r => String.Equals(r.Name, roleName, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

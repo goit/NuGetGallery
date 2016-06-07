@@ -452,6 +452,11 @@ The {3} Team";
                     MailSender.Send(senderCopy);
                 }
             }
+            catch (InvalidOperationException ex)
+            {
+                // Log but swallow the exception
+                QuietLog.LogHandledException(ex);
+            }
             catch (SmtpException ex)
             {
                 // Log but swallow the exception
@@ -459,9 +464,55 @@ The {3} Team";
             }
         }
 
+        public void SendPackageAddedNotice(Package package, string packageUrl, string packageSupportUrl, string emailSettingsUrl)
+        {
+            string subject = "[{0}] Package published - {1} {2}";
+            string body = @"The package [{1} {2}]({3}) was just published on {0}. If this was not intended, please [contact support]({4}).
+
+-----------------------------------------------
+<em style=""font-size: 0.8em;"">
+    To stop receiving emails as an owner of this package, sign in to the {0} and
+    [change your email notification settings]({5}).
+</em>";
+
+            body = String.Format(
+                CultureInfo.CurrentCulture,
+                body,
+                Config.GalleryOwner.DisplayName, 
+                package.PackageRegistration.Id, 
+                package.Version,
+                packageUrl,
+                packageSupportUrl,
+                emailSettingsUrl);
+
+            subject = String.Format(CultureInfo.CurrentCulture, subject, Config.GalleryOwner.DisplayName, package.PackageRegistration.Id, package.Version);
+
+            using (var mailMessage = new MailMessage())
+            {
+                mailMessage.Subject = subject;
+                mailMessage.Body = body;
+                mailMessage.From = Config.GalleryOwner;
+
+                AddOwnersSubscribedToPackagePushedNotification(package.PackageRegistration, mailMessage);
+
+                if (mailMessage.To.Any())
+                {
+                    SendMessage(mailMessage);
+                }
+            }
+        }
+
         private static void AddOwnersToMailMessage(PackageRegistration packageRegistration, MailMessage mailMessage)
         {
             foreach (var owner in packageRegistration.Owners.Where(o => o.EmailAllowed))
+            {
+                mailMessage.To.Add(owner.ToMailAddress());
+            }
+        }
+
+        private static void AddOwnersSubscribedToPackagePushedNotification(PackageRegistration packageRegistration, MailMessage mailMessage)
+        {
+            foreach (var owner in packageRegistration.Owners.Where(o => o.NotifyPackagePushed))
             {
                 mailMessage.To.Add(owner.ToMailAddress());
             }

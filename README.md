@@ -9,7 +9,7 @@ website for the NuGet client. For information about the NuGet project, visit the
 ## Build and Run the Gallery in (arbitrary number) easy steps
 
 1. Prerequisites. Install these if you don't already have them:
- 1. Visual Studio 2015
+ 1. Visual Studio 2015 - Custom install so that you may also install Microsoft SQL Server Data Tools. This will provide the LocalDB that Windows Azure SDK requires.
  2. PowerShell 2.0 (comes with Windows 7+)
  3. [NuGet](http://docs.nuget.org/docs/start-here/installing-nuget)
  4. [Windows Azure SDK](http://www.microsoft.com/windowsazure/sdk/) - Note that you may have to manually upgrade the ".Cloud" projects in the solution if a different SDK version is used.
@@ -36,7 +36,7 @@ website for the NuGet client. For information about the NuGet project, visit the
  5. Run the following command in the Package Manager Console:
  
     ```
-    Update-Database -StartUpProjectName NuGetGallery
+    Update-Database -StartUpProjectName NuGetGallery -ConfigurationTypeName MigrationsConfiguration
     ```
 If this fails, you are likely to get more useful output by passing `-Debug` than `-Verbose`.
 
@@ -65,13 +65,13 @@ Does it happen when you switch browsers. And so on.
 
 ## Submit a patch
 Before starting work on an issue, either create an issue or comment on an existing issue to ensure that we're all 
-communicating.
+communicating. We have a list of items that are [up for grabs](https://github.com/NuGet/NuGetGallery/issues?q=is%3Aopen+is%3Aissue+label%3A%22Up+for+Grabs%22) and you can start working on (but always ping us beforehand).
 
 To contribute to the gallery, make sure to create a fork first. Make your changes in the fork following 
 the Git Workflow. When you are done with your changes, send us a pull request.
 
 ## Copyright and License
-Copyright 2015 .NET Foundation
+Copyright .NET Foundation
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this work except in compliance with 
 the License. You may obtain a copy of the License in the LICENSE file, or at:

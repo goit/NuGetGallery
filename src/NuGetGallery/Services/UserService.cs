@@ -9,6 +9,7 @@ using Crypto = NuGetGallery.CryptographyService;
 using NuGetGallery.Configuration;
 using NuGetGallery.Auditing;
 using System.Threading.Tasks;
+using NuGetGallery.Migrations;
 
 namespace NuGetGallery
 {
@@ -34,7 +35,7 @@ namespace NuGetGallery
             Auditing = auditing;
         }
 
-        public async Task ChangeEmailSubscriptionAsync(User user, bool emailAllowed)
+        public async Task ChangeEmailSubscriptionAsync(User user, bool emailAllowed, bool notifyPackagePushed)
         {
             if (user == null)
             {
@@ -42,17 +43,18 @@ namespace NuGetGallery
             }
 
             user.EmailAllowed = emailAllowed;
+            user.NotifyPackagePushed = notifyPackagePushed;
             await UserRepository.CommitChangesAsync();
         }
 
         public virtual User FindByEmailAddress(string emailAddress)
         {
             var allMatches = UserRepository.GetAll()
-				.Include(u => u.Credentials)
+                .Include(u => u.Credentials)
                 .Include(u => u.Roles)
                 .Where(u => u.EmailAddress == emailAddress)
-				.Take(2)
-				.ToList();
+                .Take(2)
+                .ToList();
 
             if (allMatches.Count == 1)
             {
@@ -107,6 +109,16 @@ namespace NuGetGallery
 
             user.CancelChangeEmailAddress();
             await UserRepository.CommitChangesAsync();
+        }
+
+        public async Task<IDictionary<int, string>> GetEmailAddressesForUserKeysAsync(IReadOnlyCollection<int> distinctUserKeys)
+        {
+            var results = await UserRepository.GetAll()
+                .Where(u => distinctUserKeys.Contains(u.Key))
+                .Select(u => new { u.Key, u.EmailAddress })
+                .ToDictionaryAsync(u => u.Key, u => u.EmailAddress);
+
+            return results;
         }
 
         public async Task<bool> ConfirmEmailAddress(User user, string token)
