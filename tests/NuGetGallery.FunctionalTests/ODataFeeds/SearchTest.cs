@@ -19,26 +19,26 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
         }
 
         [Fact]
-        [Description("Performs a querystring-based search of the v1 feed.  Confirms expected packages are returned.")]
+        [Description("Performs a querystring-based search of the v1 feed. Confirms expected packages are returned.")]
         [Priority(0)]
         [Category("P0Tests")]
         public async Task SearchV1Feed()
         {
-            await SearchFeedAsync(UrlHelper.V1FeedRootUrl, "ASP.NET Web Helpers Library");
+            await SearchFeedAsync(UrlHelper.V1FeedRootUrl, "Json.NET");
         }
 
         [Fact]
-        [Description("Performs a querystring-based search of the default (non-curated) v2 feed.  Confirms expected packages are returned.")]
+        [Description("Performs a querystring-based search of the default (non-curated) v2 feed. Confirms expected packages are returned.")]
         [Priority(0)]
         [Category("P0Tests")]
         public async Task SearchV2Feed()
         {
-            await SearchFeedAsync(UrlHelper.V2FeedRootUrl, "microsoft-web-helpers");
+            await SearchFeedAsync(UrlHelper.V2FeedRootUrl, "Json.NET");
         }
 
         private async Task SearchFeedAsync(string feedRootUrl, string title)
         {
-            var requestUrl = feedRootUrl + @"Search()?$filter=IsLatestVersion&$skip=0&$top=10&searchTerm='web%20helpers'&targetFramework='net40'&includePrerelease=false";
+            var requestUrl = feedRootUrl + @"Search()?$filter=IsLatestVersion&$skip=0&$top=25&searchTerm='newtonsoft%20json'&targetFramework='net40'&includePrerelease=false";
             TestOutputHelper.WriteLine("Request: GET " + requestUrl);
             var expectedPackageUrl = feedRootUrl + "package/microsoft-web-helpers/";
 
@@ -53,9 +53,12 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
                 responseText = await sr.ReadToEndAsync();
             }
 
-            Assert.True(responseText.Contains(@"<title type=""text"">" + title + @"</title>"), "The expected package title '"+ title + "' wasn't found in the feed.  Feed contents: " + responseText);
-            Assert.True(responseText.Contains(@"<content type=""application/zip"" src=""" + expectedPackageUrl), "The expected package URL '"+ expectedPackageUrl +"' wasn't found in the feed.  Feed contents: " + responseText);
-            Assert.False(responseText.Contains(@"ContentFilesExample"), "The feed contains non-matching package names.  Feed contents: " + responseText);
+            var expectedUrl = feedRootUrl + "package/Newtonsoft.Json/";
+
+            Assert.True(responseText.Contains(@"<title type=""text"">" + title + @"</title>")
+                     || responseText.Contains(@"<d:Title>" + title + @"</d:Title>"), "The expected package title '" + title + "' wasn't found in the feed. Feed contents: " + responseText);
+            Assert.True(responseText.Contains(@"<content type=""application/zip"" src=""" + expectedUrl), "The expected package URL '" + expectedUrl + "' wasn't found in the feed.  Feed contents: " + responseText);
+            Assert.False(responseText.Contains(@"jquery"), "The feed contains non-matching package names. Feed contents: " + responseText);
         }
     }
 }

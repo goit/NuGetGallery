@@ -124,7 +124,7 @@ namespace NuGetGallery
             return Task.FromResult<IFileReference>(file.Exists ? new LocalFileReference(file) : null);
         }
 
-        public Task SaveFileAsync(string folderName, string fileName, Stream packageFile)
+        public Task SaveFileAsync(string folderName, string fileName, Stream packageFile, bool overwrite = true)
         {
             if (String.IsNullOrWhiteSpace(folderName))
             {
@@ -141,25 +141,25 @@ namespace NuGetGallery
                 throw new ArgumentNullException(nameof(packageFile));
             }
 
-            var storageDirectory = ResolvePath(_configuration.FileStorageDirectory);
-
-            if (!_fileSystemService.DirectoryExists(storageDirectory))
-            {
-                _fileSystemService.CreateDirectory(storageDirectory);
-            }
-
-            var folderPath = Path.Combine(storageDirectory, folderName);
-            if (!_fileSystemService.DirectoryExists(folderPath))
-            {
-                _fileSystemService.CreateDirectory(folderPath);
-            }
-
             var filePath = BuildPath(_configuration.FileStorageDirectory, folderName, fileName);
-            folderPath = Path.GetDirectoryName(filePath);
-            if (!_fileSystemService.DirectoryExists(folderPath))
+
+            var dirPath = System.IO.Path.GetDirectoryName(filePath);
+
+            _fileSystemService.CreateDirectory(dirPath);
+
+            if (_fileSystemService.FileExists(filePath))
             {
-                _fileSystemService.CreateDirectory(folderPath);
+                if (overwrite)
+                {
+                    _fileSystemService.DeleteFile(filePath);
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        String.Format(CultureInfo.CurrentCulture, "There is already a file with name {0} in folder {1}.", fileName, folderName));
+                }
             }
+
             using (var file = _fileSystemService.OpenWrite(filePath))
             {
                 packageFile.CopyTo(file);
@@ -181,7 +181,7 @@ namespace NuGetGallery
             return Path.Combine(fileStorageDirectory, folderName, fileName);
         }
 
-        private static string ResolvePath(string fileStorageDirectory)
+        public static string ResolvePath(string fileStorageDirectory)
         {
             if (fileStorageDirectory.StartsWith("~/", StringComparison.OrdinalIgnoreCase) && HostingEnvironment.IsHosted)
             {

@@ -70,7 +70,43 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The specified API key is invalid or does not have permission to access the specified package..
+        ///   Looks up a localized string similar to a minute.
+        /// </summary>
+        public static string AMinute {
+            get {
+                return ResourceManager.GetString("AMinute", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to API key can not be the default Guid..
+        /// </summary>
+        public static string ApiKeyCanNotBeDefaultGuid {
+            get {
+                return ResourceManager.GetString("ApiKeyCanNotBeDefaultGuid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Can&apos;t generate an API key without a description..
+        /// </summary>
+        public static string ApiKeyDescriptionRequired {
+            get {
+                return ResourceManager.GetString("ApiKeyDescriptionRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A new API key has been generated. Check below and make sure to copy the value, as now is the only time it will be visible..
+        /// </summary>
+        public static string ApiKeyGenerated {
+            get {
+                return ResourceManager.GetString("ApiKeyGenerated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The specified API key is invalid, has expired, or does not have permission to access the specified package..
         /// </summary>
         public static string ApiKeyNotAuthorized {
             get {
@@ -84,15 +120,6 @@ namespace NuGetGallery {
         public static string ApiKeyRequired {
             get {
                 return ResourceManager.GetString("ApiKeyRequired", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Your API Key has been reset, check the new value below..
-        /// </summary>
-        public static string ApiKeyReset {
-            get {
-                return ResourceManager.GetString("ApiKeyReset", resourceCulture);
             }
         }
         
@@ -188,7 +215,25 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The external account has been removed.
+        ///   Looks up a localized string similar to The credential has been expired..
+        /// </summary>
+        public static string CredentialExpired {
+            get {
+                return ResourceManager.GetString("CredentialExpired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Credential not found..
+        /// </summary>
+        public static string CredentialNotFound {
+            get {
+                return ResourceManager.GetString("CredentialNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The credential has been removed..
         /// </summary>
         public static string CredentialRemoved {
             get {
@@ -197,7 +242,7 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to API Key.
+        ///   Looks up a localized string similar to API key.
         /// </summary>
         public static string CredentialType_ApiKey {
             get {
@@ -260,6 +305,24 @@ namespace NuGetGallery {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to API key &apos;{0}&apos; was added to your account and can now be used. If you did not request this change, please reply to this email to contact support..
+        /// </summary>
+        public static string Emails_ApiKeyAdded_Body {
+            get {
+                return ResourceManager.GetString("Emails_ApiKeyAdded_Body", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to API key &apos;{0}&apos; was removed from your account and can no longer be used. If you did not request this change, please reply to this email to contact support..
+        /// </summary>
+        public static string Emails_ApiKeyRemoved_Body {
+            get {
+                return ResourceManager.GetString("Emails_ApiKeyRemoved_Body", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A {0} was added to your account and can now be used to log in. If you did not request this change, please reply to this email to contact support..
         /// </summary>
         public static string Emails_CredentialAdded_Body {
@@ -299,12 +362,12 @@ namespace NuGetGallery {
         ///   Looks up a localized string similar to The word on the street is you lost your password. Sorry to hear it!
         ///If you haven&apos;t forgotten your password you can safely ignore this email. Your password has not been changed.
         ///
-        ///Click the following link within the next {0} hours to reset your password:
+        ///Click the following link within the next hour to reset your password:
         ///
-        ///[{1}]({1})
+        ///[{0}]({0})
         ///
         ///Thanks,
-        ///The {2} Team.
+        ///The {1} Team.
         /// </summary>
         public static string Emails_ForgotPassword_Body {
             get {
@@ -325,12 +388,12 @@ namespace NuGetGallery {
         ///   Looks up a localized string similar to The word on the street is you want to set a password for your account.
         ///If you didn&apos;t request a password, you can safely ignore this message. A password has not yet been set.
         ///
-        ///Click the following link within the next {0} hours to set your password:
+        ///Click the following link within the next hour to set your password:
         ///
-        ///[{1}]({1})
+        ///[{0}]({0})
         ///
         ///Thanks,
-        ///The {2} Team.
+        ///The {1} Team.
         /// </summary>
         public static string Emails_SetPassword_Body {
             get {
@@ -389,24 +452,6 @@ namespace NuGetGallery {
         public static string FailedToReadUploadFile {
             get {
                 return ResourceManager.GetString("FailedToReadUploadFile", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to (404) Error - Not Found.
-        /// </summary>
-        public static string Http404NotFound {
-            get {
-                return ResourceManager.GetString("Http404NotFound", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Index does not exist.
-        /// </summary>
-        public static string IndexDoesNotExist {
-            get {
-                return ResourceManager.GetString("IndexDoesNotExist", resourceCulture);
             }
         }
         
@@ -528,6 +573,15 @@ namespace NuGetGallery {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} minutes.
+        /// </summary>
+        public static string Minutes {
+            get {
+                return ResourceManager.GetString("Minutes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Missing required configuration value: &apos;{0}&apos;.
         /// </summary>
         public static string MissingRequiredConfigurationValue {
@@ -546,15 +600,6 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Negative indexes are invalid..
-        /// </summary>
-        public static string NegativeIndexesAreInvalid {
-            get {
-                return ResourceManager.GetString("NegativeIndexesAreInvalid", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The ID of your package, &apos;{0}&apos;, is similar to the title of an existing package, which can cause confusion with our users. Please modify the ID of your package and try uploading again..
         /// </summary>
         public static string NewRegistrationIdMatchesExistingPackageTitle {
@@ -569,6 +614,15 @@ namespace NuGetGallery {
         public static string No {
             get {
                 return ResourceManager.GetString("No", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Full access API key.
+        /// </summary>
+        public static string NonScopedApiKeyDescription {
+            get {
+                return ResourceManager.GetString("NonScopedApiKeyDescription", resourceCulture);
             }
         }
         
@@ -600,6 +654,15 @@ namespace NuGetGallery {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Package created from API..
+        /// </summary>
+        public static string PackageCreatedFromApi {
+            get {
+                return ResourceManager.GetString("PackageCreatedFromApi", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The package is invalid and cannot be uploaded. One or more files, such as &apos;{0}&apos; have a date in the future..
         /// </summary>
         public static string PackageEntryFromTheFuture {
@@ -609,7 +672,7 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A package with id &apos;{0}&apos; and version &apos;{1}&apos; already exists and cannot be modified..
+        ///   Looks up a localized string similar to A package with ID &apos;{0}&apos; and version &apos;{1}&apos; already exists and cannot be modified..
         /// </summary>
         public static string PackageExistsAndCannotBeModified {
             get {
@@ -645,7 +708,7 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A package with id &apos;{0}&apos; and version &apos;{1}&apos; does not exist..
+        ///   Looks up a localized string similar to A package with ID &apos;{0}&apos; and version &apos;{1}&apos; does not exist..
         /// </summary>
         public static string PackageWithIdAndVersionNotFound {
             get {
@@ -672,7 +735,7 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Your password has been changed.
+        ///   Looks up a localized string similar to Your password has been changed..
         /// </summary>
         public static string PasswordChanged {
             get {
@@ -690,7 +753,7 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Your password has been removed.
+        ///   Looks up a localized string similar to Your password has been removed..
         /// </summary>
         public static string PasswordRemoved {
             get {
@@ -699,11 +762,65 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Your password has been set.
+        ///   Looks up a localized string similar to Your password has been set..
         /// </summary>
         public static string PasswordSet {
             get {
                 return ResourceManager.GetString("PasswordSet", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to All.
+        /// </summary>
+        public static string ScopeDescription_All {
+            get {
+                return ResourceManager.GetString("ScopeDescription_All", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Push new packages and package versions.
+        /// </summary>
+        public static string ScopeDescription_PushPackage {
+            get {
+                return ResourceManager.GetString("ScopeDescription_PushPackage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Push only new package versions.
+        /// </summary>
+        public static string ScopeDescription_PushPackageVersion {
+            get {
+                return ResourceManager.GetString("ScopeDescription_PushPackageVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unknown.
+        /// </summary>
+        public static string ScopeDescription_Unknown {
+            get {
+                return ResourceManager.GetString("ScopeDescription_Unknown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unlist package.
+        /// </summary>
+        public static string ScopeDescription_UnlistPackage {
+            get {
+                return ResourceManager.GetString("ScopeDescription_UnlistPackage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Verify package ownership.
+        /// </summary>
+        public static string ScopeDescription_VerifyPackage {
+            get {
+                return ResourceManager.GetString("ScopeDescription_VerifyPackage", resourceCulture);
             }
         }
         
@@ -762,6 +879,15 @@ namespace NuGetGallery {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unsupported.
+        /// </summary>
+        public static string Unsupported {
+            get {
+                return ResourceManager.GetString("Unsupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A package file is required..
         /// </summary>
         public static string UploadFileIsRequired {
@@ -780,11 +906,29 @@ namespace NuGetGallery {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The NuGet package contains an invalid .nuspec file. The error encountered was:&apos;{0}&apos;. Correct the error and try again..
+        ///   Looks up a localized string similar to There is a conflict with the ID and version of your package and another package. Please change your package&apos;s ID or version and try again..
+        /// </summary>
+        public static string UploadPackage_IdVersionConflict {
+            get {
+                return ResourceManager.GetString("UploadPackage_IdVersionConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The NuGet package contains an invalid .nuspec file. The error encountered was: &apos;{0}&apos;. Correct the error and try again..
         /// </summary>
         public static string UploadPackage_InvalidNuspec {
             get {
                 return ResourceManager.GetString("UploadPackage_InvalidNuspec", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The NuGet package contains an invalid .nuspec file. The errors encountered were: &apos;{0}&apos;. Correct the errors and try again..
+        /// </summary>
+        public static string UploadPackage_InvalidNuspecMultiple {
+            get {
+                return ResourceManager.GetString("UploadPackage_InvalidNuspecMultiple", resourceCulture);
             }
         }
         
@@ -803,6 +947,15 @@ namespace NuGetGallery {
         public static string UploadPackage_MinClientVersionOutOfRange {
             get {
                 return ResourceManager.GetString("UploadPackage_MinClientVersionOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Your account was locked after too many unsuccessful sign-in attempts. Please try again in {0}..
+        /// </summary>
+        public static string UserAccountLocked {
+            get {
+                return ResourceManager.GetString("UserAccountLocked", resourceCulture);
             }
         }
         
@@ -848,6 +1001,33 @@ namespace NuGetGallery {
         public static string UserNotFound {
             get {
                 return ResourceManager.GetString("UserNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to API &apos;{0}&apos; is deprecated and may be removed in a future version..
+        /// </summary>
+        public static string WarningApiDeprecated {
+            get {
+                return ResourceManager.GetString("WarningApiDeprecated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Your API key expires in {0} days. Visit {1} to regenerate your API key..
+        /// </summary>
+        public static string WarningApiKeyAboutToExpire {
+            get {
+                return ResourceManager.GetString("WarningApiKeyAboutToExpire", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Your API key has expired. Visit {0} to generate a new API key..
+        /// </summary>
+        public static string WarningApiKeyExpired {
+            get {
+                return ResourceManager.GetString("WarningApiKeyExpired", resourceCulture);
             }
         }
         

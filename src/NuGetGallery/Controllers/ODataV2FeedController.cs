@@ -9,11 +9,13 @@ using System.Threading.Tasks;
 using System.Web.Http;
 using System.Web.Http.OData;
 using System.Web.Http.OData.Query;
+using System.Web.Http.Results;
 using NuGet.Frameworks;
 using NuGet.Versioning;
 using NuGetGallery.Configuration;
 using NuGetGallery.Infrastructure.Lucene;
 using NuGetGallery.OData;
+using NuGetGallery.OData.QueryFilter;
 using NuGetGallery.OData.QueryInterceptors;
 using NuGetGallery.WebApi;
 using QueryInterceptor;
@@ -28,12 +30,12 @@ namespace NuGetGallery.Controllers
         private const int MaxPageSize = SearchAdaptor.MaxPageSize;
 
         private readonly IEntityRepository<Package> _packagesRepository;
-        private readonly ConfigurationService _configurationService;
+        private readonly IGalleryConfigurationService _configurationService;
         private readonly ISearchService _searchService;
 
         public ODataV2FeedController(
             IEntityRepository<Package> packagesRepository,
-            ConfigurationService configurationService,
+            IGalleryConfigurationService configurationService,
             ISearchService searchService)
             : base(configurationService)
         {
@@ -59,7 +61,7 @@ namespace NuGetGallery.Controllers
             try
             {
                 HijackableQueryParameters hijackableQueryParameters = null;
-                if (SearchHijacker.IsHijackable(options, out hijackableQueryParameters) && _searchService is ExternalSearchService)
+                if (_searchService is ExternalSearchService && SearchHijacker.IsHijackable(options, out hijackableQueryParameters))
                 {
                     var searchAdaptorResult = await SearchAdaptor.FindByIdAndVersionCore(
                         _searchService, GetTraditionalHttpContext().Request, packages,
@@ -87,6 +89,13 @@ namespace NuGetGallery.Controllers
                 // Swallowing Exception intentionally. If *anything* goes wrong in search, just fall back to the database.
                 // We don't want to break package restores. We do want to know if this happens, so here goes:
                 QuietLog.LogHandledException(ex);
+            }
+
+            //Reject only when try to reach database.
+            if (!ODataQueryVerifier.AreODataOptionsAllowed(options, ODataQueryVerifier.V2Packages,
+                _configurationService.Current.IsODataFilterEnabled, nameof(Get)))
+            {
+                return BadRequest(ODataQueryVerifier.GetValidationFailedMessage(options));
             }
 
             var queryable = packages.ToV2FeedPackageQuery(GetSiteRoot(), _configurationService.Features.FriendlyLicenses);
@@ -222,7 +231,7 @@ namespace NuGetGallery.Controllers
                 }
             }
 
-            // Peform actual search
+            // Perform actual search
             var packages = _packagesRepository.GetAll()
                 .Include(p => p.PackageRegistration)
                 .Include(p => p.PackageRegistration.Owners)
@@ -256,6 +265,12 @@ namespace NuGetGallery.Controllers
                     }
                     return null;
                 });
+            }
+            //Reject only when try to reach database.
+            if (!ODataQueryVerifier.AreODataOptionsAllowed(options, ODataQueryVerifier.V2Search,
+                _configurationService.Current.IsODataFilterEnabled, nameof(Search)))
+            {
+                return BadRequest(ODataQueryVerifier.GetValidationFailedMessage(options));
             }
 
             // If not, just let OData handle things
@@ -293,10 +308,16 @@ namespace NuGetGallery.Controllers
                 return Ok(Enumerable.Empty<V2FeedPackage>().AsQueryable());
             }
 
+            if (!ODataQueryVerifier.AreODataOptionsAllowed(options, ODataQueryVerifier.V2GetUpdates,
+                _configurationService.Current.IsODataFilterEnabled, nameof(GetUpdates)))
+            {
+                return BadRequest(ODataQueryVerifier.GetValidationFailedMessage(options));
+            }
+
             // Workaround https://github.com/NuGet/NuGetGallery/issues/674 for NuGet 2.1 client.
             // Can probably eventually be retired (when nobody uses 2.1 anymore...)
             // Note - it was URI un-escaping converting + to ' ', undoing that is actually a pretty conservative substitution because
-            // space characters are never acepted as valid by VersionUtility.ParseFrameworkName.
+            // space characters are never accepted as valid by VersionUtility.ParseFrameworkName.
             if (!string.IsNullOrEmpty(targetFrameworks))
             {
                 targetFrameworks = targetFrameworks.Replace(' ', '+');

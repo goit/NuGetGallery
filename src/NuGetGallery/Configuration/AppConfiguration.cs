@@ -93,6 +93,12 @@ namespace NuGetGallery.Configuration
         public MailAddress GalleryOwner { get; set; }
 
         /// <summary>
+        /// Gets the gallery e-mail from name and email address
+        /// </summary>
+        [TypeConverter(typeof(MailAddressConverter))]
+        public MailAddress GalleryNoReplyAddress { get; set; }
+
+        /// <summary>
         /// Gets the storage mechanism used by this instance of the gallery
         /// </summary>
         [DefaultValue(StorageType.NotSpecified)]
@@ -169,6 +175,28 @@ namespace NuGetGallery.Configuration
         public string EnforcedAuthProviderForAdmin { get; set; }
 
         /// <summary>
+        /// A regex to validate password format. The default regex requires the password to be atlease 8 characters, 
+        /// include at least one uppercase letter, one lowercase letter and a digit.
+        /// </summary>
+        [Required]
+        [DefaultValue("^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,64}$")]
+        public string UserPasswordRegex { get; set; }
+
+        [Required]
+        [DefaultValue("Your password must be at least 8 characters, should include at least one uppercase letter, one lowercase letter and a digit.")]
+        public string UserPasswordHint { get; set; }
+
+        /// <summary>
+        /// Defines the time after which V1 API keys expire.
+        /// </summary>
+        public int ExpirationInDaysForApiKeyV1 { get; set; }
+
+        /// <summary>
+        /// Defines the number of days before the API key expires when the server should emit a warning to the client.
+        /// </summary>
+        public int WarnAboutExpirationInDaysForApiKeyV1 { get; set; }
+
+        /// <summary>
         /// Gets a string containing the PagerDuty account name.
         /// </summary>
         public string PagerDutyAccountName { get; set; }
@@ -182,5 +210,10 @@ namespace NuGetGallery.Configuration
         /// Gets a string containing the PagerDuty Service key.
         /// </summary>
         public string PagerDutyServiceKey { get; set; }
+
+        /// <summary>
+        /// Gets/sets a bool that indicates if the OData requests will be filtered.
+        /// </summary>
+        public bool IsODataFilterEnabled { get; set; }
     }
 }

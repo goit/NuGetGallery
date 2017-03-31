@@ -63,20 +63,40 @@ namespace NuGetGallery
         public static void VerifyCommitted<T>(this Mock<IEntityRepository<T>> self)
             where T : class, IEntity, new()
         {
-            self.Verify(e => e.CommitChangesAsync());
+            self.VerifyCommitted(Times.AtLeastOnce());
+        }
+
+        public static void VerifyCommitted<T>(this Mock<IEntityRepository<T>> self, Times times)
+            where T : class, IEntity, new()
+        {
+            self.Verify(e => e.CommitChangesAsync(), times);
         }
 
         public static void VerifyCommitted(this Mock<IEntitiesContext> self)
         {
-            self.Verify(e => e.SaveChangesAsync());
+            self.VerifyCommitted(Times.AtLeastOnce());
+        }
+
+        public static void VerifyCommitted(this Mock<IEntitiesContext> self, Times times)
+        {
+            self.Verify(e => e.SaveChangesAsync(), times);
         }
 
         public static IReturnsResult<AuthenticationService> SetupAuth(this Mock<AuthenticationService> self, Credential cred, User user)
         {
-            return self.Setup(us => us.Authenticate(It.Is<Credential>(c =>
-                String.Equals(c.Type, cred.Type, StringComparison.OrdinalIgnoreCase) &&
-                String.Equals(c.Value, cred.Value, StringComparison.Ordinal))))
-                .Returns(user == null ? null : new AuthenticatedUser(user, cred));
+            if (CredentialTypes.IsApiKey(cred.Type))
+            {
+                return self.Setup(us => us.Authenticate(It.Is<string>(c =>
+                            string.Equals(c, cred.Value, StringComparison.Ordinal))))
+                    .Returns(Task.FromResult(user == null ? null : new AuthenticatedUser(user, cred)));
+            }
+            else
+            {
+                return self.Setup(us => us.Authenticate(It.Is<Credential>(c =>
+                        string.Equals(c.Type, cred.Type, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(c.Value, cred.Value, StringComparison.Ordinal))))
+                    .Returns(Task.FromResult(user == null ? null : new AuthenticatedUser(user, cred)));
+            }
         }
     }
 }

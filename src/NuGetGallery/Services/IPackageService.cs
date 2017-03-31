@@ -13,6 +13,7 @@ namespace NuGetGallery
         PackageRegistration FindPackageRegistrationById(string id);
         Package FindPackageByIdAndVersion(string id, string version, bool allowPrerelease = true);
         IEnumerable<Package> FindPackagesByOwner(User user, bool includeUnlisted);
+        IEnumerable<PackageRegistration> FindPackageRegistrationsByOwner(User user);
         IEnumerable<Package> FindDependentPackages(Package package);
 
         Task UpdateIsLatestAsync(PackageRegistration packageRegistration, bool commitChanges = true);
@@ -30,6 +31,8 @@ namespace NuGetGallery
         /// <returns>The created package entity.</returns>
         Task<Package> CreatePackageAsync(PackageArchiveReader nugetPackage, PackageStreamMetadata packageStreamMetadata, User user, bool commitChanges = true);
 
+        Package EnrichPackageFromNuGetPackage(Package package, PackageArchiveReader packageArchive, PackageMetadata packageMetadata, PackageStreamMetadata packageStreamMetadata, User user);
+
         Task PublishPackageAsync(string id, string version, bool commitChanges = true);
         Task PublishPackageAsync(Package package, bool commitChanges = true);
 
@@ -44,5 +47,7 @@ namespace NuGetGallery
         Task SetLicenseReportVisibilityAsync(Package package, bool visible, bool commitChanges = true);
 
         void EnsureValid(PackageArchiveReader packageArchiveReader);
+
+        Task IncrementDownloadCountAsync(string id, string version, bool commitChanges = true);
     }
 }

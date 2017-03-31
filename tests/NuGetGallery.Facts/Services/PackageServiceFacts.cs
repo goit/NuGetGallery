@@ -8,7 +8,9 @@ using System.Threading.Tasks;
 using Moq;
 using NuGet.Frameworks;
 using NuGet.Packaging;
+using NuGet.Packaging.Core;
 using NuGet.Versioning;
+using NuGetGallery.Auditing;
 using NuGetGallery.Framework;
 using NuGetGallery.Packaging;
 using Xunit;
@@ -34,7 +36,8 @@ namespace NuGetGallery
             Uri projectUrl = null,
             Uri iconUrl = null,
             bool requireLicenseAcceptance = true,
-            IEnumerable<PackageDependencyGroup> packageDependencyGroups = null)
+            IEnumerable<PackageDependencyGroup> packageDependencyGroups = null,
+            IEnumerable<NuGet.Packaging.Core.PackageType> packageTypes = null)
         {
             licenseUrl = licenseUrl ?? new Uri("http://thelicenseurl/");
             projectUrl = projectUrl ?? new Uri("http://theprojecturl/");
@@ -71,11 +74,20 @@ namespace NuGetGallery
                 };
             }
 
+            if (packageTypes == null)
+            {
+                packageTypes = new[]
+                {
+                    new NuGet.Packaging.Core.PackageType("dependency", new Version("1.0.0")),
+                    new NuGet.Packaging.Core.PackageType("DotNetCliTool", new Version("2.1.1"))
+                };
+            }
+
             var testPackage = TestPackage.CreateTestPackageStream(
                 id, version, title, summary, authors, owners,
                 description, tags, language, copyright, releaseNotes,
                 minClientVersion, licenseUrl, projectUrl, iconUrl,
-                requireLicenseAcceptance, packageDependencyGroups);
+                requireLicenseAcceptance, packageDependencyGroups, packageTypes);
 
             var mock = new Mock<TestPackageReader>(testPackage);
             mock.CallBase = true;
@@ -88,12 +100,14 @@ namespace NuGetGallery
             Mock<IEntityRepository<PackageOwnerRequest>> packageOwnerRequestRepo = null,
             Mock<IIndexingService> indexingService = null,
             IPackageNamingConflictValidator packageNamingConflictValidator = null,
+            IAuditingService auditingService = null,
             Action<Mock<PackageService>> setup = null)
         {
             packageRegistrationRepository = packageRegistrationRepository ?? new Mock<IEntityRepository<PackageRegistration>>();
             packageRepository = packageRepository ?? new Mock<IEntityRepository<Package>>();
             packageOwnerRequestRepo = packageOwnerRequestRepo ?? new Mock<IEntityRepository<PackageOwnerRequest>>();
             indexingService = indexingService ?? new Mock<IIndexingService>();
+            auditingService = auditingService ?? new TestAuditingService();
 
             if (packageNamingConflictValidator == null)
             {
@@ -107,7 +121,8 @@ namespace NuGetGallery
                 packageRepository.Object,
                 packageOwnerRequestRepo.Object,
                 indexingService.Object,
-                packageNamingConflictValidator);
+                packageNamingConflictValidator,
+                auditingService);
 
             packageService.CallBase = true;
 
@@ -158,6 +173,27 @@ namespace NuGetGallery
                 await service.AddPackageOwnerAsync(package, pendingOwner);
 
                 repository.VerifyAll();
+            }
+            
+            [Fact]
+            public async Task WritesAnAuditRecord()
+            {
+                // Arrange
+                var package = new PackageRegistration { Key = 2, Id = "pkg42" };
+                var pendingOwner = new User { Key = 100, Username = "teamawesome" };
+                var packageRepository = new Mock<IEntityRepository<Package>>();
+                var auditingService = new TestAuditingService();
+                var service = CreateService(
+                    packageRepository: packageRepository,
+                    auditingService: auditingService);
+
+                // Act
+                await service.AddPackageOwnerAsync(package, pendingOwner);
+
+                // Assert
+                Assert.True(auditingService.WroteRecord<PackageRegistrationAuditRecord>(ar =>
+                    ar.Action == AuditedPackageRegistrationAction.AddOwner
+                    && ar.Id == package.Id));
             }
         }
 
@@ -729,12 +765,19 @@ namespace NuGetGallery
             {
                 var service = CreateService();
                 var versionSpec = VersionRange.Parse("[1.0]");
+
+                var numDependencies = 5000;
+                var packageDependencies = new List<NuGet.Packaging.Core.PackageDependency>();
+                for (int i = 0; i < numDependencies; i++)
+                {
+                    packageDependencies.Add(new NuGet.Packaging.Core.PackageDependency("dependency" + i, versionSpec));
+                }
+
                 var nugetPackage = CreateNuGetPackage(packageDependencyGroups: new[]
                 {
                     new PackageDependencyGroup(
                         new NuGetFramework("net40"),
-                        Enumerable.Repeat(
-                            new NuGet.Packaging.Core.PackageDependency("theFirstDependency", versionSpec), 5000)),
+                        packageDependencies),
                 });
 
                 var ex = await Assert.ThrowsAsync<EntityException>(async () => await service.CreatePackageAsync(nugetPackage.Object, new PackageStreamMetadata(), null));
@@ -899,29 +942,7 @@ namespace NuGetGallery
                 Assert.Equal("net40", package.SupportedFrameworks.First().TargetFramework);
                 Assert.Equal("net35", package.SupportedFrameworks.ElementAt(1).TargetFramework);
             }
-
-            [Fact]
-            private async Task WillNotSaveAnySupportedFrameworksWhenThereIsANullTargetFramework()
-            {
-                var packageRegistrationRepository = new Mock<IEntityRepository<PackageRegistration>>();
-                var service = CreateService(packageRegistrationRepository: packageRegistrationRepository, setup: mockPackageService =>
-                {
-                    mockPackageService.Setup(p => p.FindPackageRegistrationById(It.IsAny<string>())).Returns((PackageRegistration)null);
-                    mockPackageService.Setup(p => p.GetSupportedFrameworks(It.IsAny<PackageArchiveReader>())).Returns(
-                        new[]
-                        {
-                                           null,
-                                           NuGetFramework.Parse("net35")
-                        });
-                });
-                var nugetPackage = CreateNuGetPackage();
-                var currentUser = new User();
-
-                var package = await service.CreatePackageAsync(nugetPackage.Object, new PackageStreamMetadata(), currentUser);
-
-                Assert.Empty(package.SupportedFrameworks);
-            }
-
+            
             [Fact]
             private async Task WillNotSaveAnySupportedFrameworksWhenThereIsAnAnyTargetFramework()
             {
@@ -1401,6 +1422,28 @@ namespace NuGetGallery
 
                 await Assert.ThrowsAsync<InvalidOperationException>(async () => await service.MarkPackageListedAsync(package));
             }
+
+            [Fact]
+            public async Task WritesAnAuditRecord()
+            {
+                // Arrange
+                var packageRegistration = new PackageRegistration { Id = "theId" };
+                var package = new Package { Version = "1.0", PackageRegistration = packageRegistration, Listed = false };
+                var packageRepository = new Mock<IEntityRepository<Package>>();
+                var auditingService = new TestAuditingService();
+                var service = CreateService(
+                    packageRepository: packageRepository, 
+                    auditingService: auditingService);
+
+                // Act
+                await service.MarkPackageListedAsync(package);
+                
+                // Assert
+                Assert.True(auditingService.WroteRecord<PackageAuditRecord>(ar =>
+                    ar.Action == AuditedPackageAction.List
+                    && ar.Id == package.PackageRegistration.Id
+                    && ar.Version == package.Version));
+            }
         }
 
         public class TheMarkPackageUnlistedMethod
@@ -1486,6 +1529,28 @@ namespace NuGetGallery
 
                 Assert.False(package.IsLatest, "IsLatest");
                 Assert.False(package.IsLatestStable, "IsLatestStable");
+            }
+
+            [Fact]
+            public async Task WritesAnAuditRecord()
+            {
+                // Arrange
+                var packageRegistration = new PackageRegistration { Id = "theId" };
+                var package = new Package { Version = "1.0", PackageRegistration = packageRegistration, Listed = true };
+                var packageRepository = new Mock<IEntityRepository<Package>>();
+                var auditingService = new TestAuditingService();
+                var service = CreateService(
+                    packageRepository: packageRepository,
+                    auditingService: auditingService);
+
+                // Act
+                await service.MarkPackageUnlistedAsync(package);
+
+                // Assert
+                Assert.True(auditingService.WroteRecord<PackageAuditRecord>(ar =>
+                    ar.Action == AuditedPackageAction.Unlist
+                    && ar.Id == package.PackageRegistration.Id
+                    && ar.Version == package.Version));
             }
         }
 
@@ -1820,6 +1885,27 @@ namespace NuGetGallery
 
                 Assert.Contains(owner, package.Owners);
                 packageOwnerRequestRepository.VerifyAll();
+            }
+
+            [Fact]
+            public async Task WritesAnAuditRecord()
+            {
+                // Arrange
+                var package = new PackageRegistration { Key = 2, Id = "pkg42" };
+                var ownerToRemove = new User { Key = 100, Username = "teamawesome" };
+                var packageRepository = new Mock<IEntityRepository<Package>>();
+                var auditingService = new TestAuditingService();
+                var service = CreateService(
+                    packageRepository: packageRepository,
+                    auditingService: auditingService);
+
+                // Act
+                await service.RemovePackageOwnerAsync(package, ownerToRemove);
+
+                // Assert
+                Assert.True(auditingService.WroteRecord<PackageRegistrationAuditRecord>(ar =>
+                    ar.Action == AuditedPackageRegistrationAction.RemoveOwner
+                    && ar.Id == package.Id));
             }
         }
 

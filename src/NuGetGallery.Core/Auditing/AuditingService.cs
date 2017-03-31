@@ -1,21 +1,24 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
 namespace NuGetGallery.Auditing
 {
-    public abstract class AuditingService
+    /// <summary>
+    /// Base class for auditing services.
+    /// </summary>
+    public abstract class AuditingService : IAuditingService
     {
+        /// <summary>
+        /// An auditing service instance with no backing store.
+        /// </summary>
         public static readonly AuditingService None = new NullAuditingService();
 
-        private static readonly JsonSerializerSettings _auditRecordSerializerSettings;
+        private static readonly JsonSerializerSettings AuditRecordSerializerSettings;
 
         static AuditingService()
         {
@@ -31,24 +34,42 @@ namespace NuGetGallery.Auditing
                 TypeNameHandling = TypeNameHandling.None
             };
             settings.Converters.Add(new StringEnumConverter());
-            _auditRecordSerializerSettings = settings;
+            AuditRecordSerializerSettings = settings;
         }
 
-        public virtual async Task<Uri> SaveAuditRecord(AuditRecord record)
+        /// <summary>
+        /// Persists the audit record to storage.
+        /// </summary>
+        /// <param name="record">An audit record.</param>
+        /// <returns>A <see cref="Task"/> that represents the asynchronous save operation.</returns> 
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="record" /> is <c>null</c>.</exception>
+        public async Task SaveAuditRecordAsync(AuditRecord record)
         {
-            // Build an audit entry
-            var entry = new AuditEntry(record, await GetActor());
+            if (record == null)
+            {
+                throw new ArgumentNullException(nameof(record));
+            }
 
-            // Serialize to json
-            string rendered = RenderAuditEntry(entry);
+            var entry = new AuditEntry(record, await GetActorAsync());
+            var rendered = RenderAuditEntry(entry);
 
-            // Save the record
-            return await SaveAuditRecord(rendered, record.GetResourceType(), record.GetPath(), record.GetAction(), entry.Actor.TimestampUtc);
+            await SaveAuditRecordAsync(rendered, record.GetResourceType(), record.GetPath(), record.GetAction(), entry.Actor.TimestampUtc);
         }
 
+        /// <summary>
+        /// Renders an audit entry as JSON.
+        /// </summary>
+        /// <param name="entry">An audit entry.</param>
+        /// <returns>A JSON string.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="entry" /> is <c>null</c>.</exception>
         public virtual string RenderAuditEntry(AuditEntry entry)
         {
-            return JsonConvert.SerializeObject(entry, _auditRecordSerializerSettings);
+            if (entry == null)
+            {
+                throw new ArgumentNullException(nameof(entry));
+            }
+
+            return JsonConvert.SerializeObject(entry, AuditRecordSerializerSettings);
         }
 
         /// <summary>
@@ -59,21 +80,19 @@ namespace NuGetGallery.Auditing
         /// <param name="filePath">The file-system path to use to identify the audit record</param>
         /// <param name="action">The action recorded in this audit record</param>
         /// <param name="timestamp">A timestamp indicating when the record was created</param>
-        /// <returns>The URI identifying the audit record resource</returns>
-        protected abstract Task<Uri> SaveAuditRecord(string auditData, string resourceType, string filePath, string action, DateTime timestamp);
+        /// <returns>A <see cref="Task"/> that represents the asynchronous save operation.</returns> 
+        protected abstract Task SaveAuditRecordAsync(string auditData, string resourceType, string filePath, string action, DateTime timestamp);
 
-        protected virtual Task<AuditActor> GetActor()
+        protected virtual Task<AuditActor> GetActorAsync()
         {
-            return AuditActor.GetCurrentMachineActor();
+            return AuditActor.GetCurrentMachineActorAsync();
         }
 
         private class NullAuditingService : AuditingService
         {
-            protected override Task<Uri> SaveAuditRecord(string auditData, string resourceType, string filePath, string action, DateTime timestamp)
+            protected override Task SaveAuditRecordAsync(string auditData, string resourceType, string filePath, string action, DateTime timestamp)
             {
-                var uriString = $"http://auditing.local/{resourceType}/{filePath}/{timestamp:s}-{action.ToLowerInvariant()}";
-                var uri = new Uri(uriString);
-                return Task.FromResult(uri);
+                return Task.FromResult(0);
             }
         }
     }

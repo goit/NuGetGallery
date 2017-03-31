@@ -70,7 +70,7 @@
         });
         $('.s-confirm[data-confirm]').delegate('', 'click', function (evt) {
             if (!confirm($(this).data().confirm)) {
-                evt.preventDefault();
+                evt.stopPropagation();
             }
         });
         if (!hasMimeTypeSupport("application/x-shockwave-flash")) {
@@ -86,7 +86,7 @@
                 }
                 ampm = "PM";
             }
-            $(this).text(utc.getFullYear() + "-" + padInt(utc.getMonth() + 1, 2) + "-" + padInt(utc.getDate(), 2) + " " + hrs + ":" + padInt(utc.getMinutes(), 2) + " " + ampm + " Local Time");
+            $(this).text(utc.getFullYear() + "-" + padInt(utc.getMonth() + 1, 2) + "-" + padInt(utc.getDate(), 2) + " " + hrs + ":" + padInt(utc.getMinutes(), 2) + " " + ampm + " (UTC)");
         });
         $('time.timeago').timeago();
     }

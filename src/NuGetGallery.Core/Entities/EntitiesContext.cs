@@ -40,6 +40,7 @@ namespace NuGetGallery
         public IDbSet<CuratedPackage> CuratedPackages { get; set; }
         public IDbSet<PackageRegistration> PackageRegistrations { get; set; }
         public IDbSet<Credential> Credentials { get; set; }
+        public IDbSet<Scope> Scopes { get; set; }
         public IDbSet<User> Users { get; set; }
 
         IDbSet<T> IEntitiesContext.Set<T>()
@@ -72,7 +73,7 @@ namespace NuGetGallery
             return Database;
         }
 
-#pragma warning disable 618 // TODO: remove Package.Authors completely once prodution services definitely no longer need it
+#pragma warning disable 618 // TODO: remove Package.Authors completely once production services definitely no longer need it
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Credential>()
@@ -80,6 +81,15 @@ namespace NuGetGallery
                 .HasRequired(c => c.User)
                     .WithMany(u => u.Credentials)
                     .HasForeignKey(c => c.UserKey);
+
+            modelBuilder.Entity<Scope>()
+                .HasKey(c => c.Key);
+
+            modelBuilder.Entity<Scope>()
+                .HasRequired<Credential>(sc => sc.Credential)
+                .WithMany(cr => cr.Scopes)
+                .HasForeignKey(sc => sc.CredentialKey)
+                .WillCascadeOnDelete(true);
 
             modelBuilder.Entity<PackageLicenseReport>()
                 .HasKey(r => r.Key)
@@ -145,6 +155,11 @@ namespace NuGetGallery
                 .HasMany<PackageDependency>(p => p.Dependencies)
                 .WithRequired(pd => pd.Package)
                 .HasForeignKey(pd => pd.PackageKey);
+
+            modelBuilder.Entity<Package>()
+                .HasMany<PackageType>(p => p.PackageTypes)
+                .WithRequired(pt => pt.Package)
+                .HasForeignKey(pt => pt.PackageKey);
 
             modelBuilder.Entity<PackageEdit>()
                 .HasKey(pm => pm.Key);

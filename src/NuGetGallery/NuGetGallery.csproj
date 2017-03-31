@@ -1,6 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\..\packages\NuGet.Services.Build.3.0.13\build\NuGet.Services.Build.props" Condition="Exists('..\..\packages\NuGet.Services.Build.3.0.13\build\NuGet.Services.Build.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -25,18 +24,15 @@
     <OldToolsVersion>12.0</OldToolsVersion>
     <TargetFrameworkProfile />
     <IISExpressSSLPort>443</IISExpressSSLPort>
-    <DownloadNuGetExe>true</DownloadNuGetExe>
     <IISExpressAnonymousAuthentication>enabled</IISExpressAnonymousAuthentication>
     <IISExpressWindowsAuthentication>disabled</IISExpressWindowsAuthentication>
     <IISExpressUseClassicPipelineMode>false</IISExpressUseClassicPipelineMode>
     <CodeContractsAssemblyMode>0</CodeContractsAssemblyMode>
-    <NuGetPackageImportStamp>001c21d7</NuGetPackageImportStamp>
-    <NuGetPackageImportStamp>061576ae</NuGetPackageImportStamp>
-    <NuGetPackageImportStamp>
-    </NuGetPackageImportStamp>
     <MvcProjectUpgradeChecked>true</MvcProjectUpgradeChecked>
     <UseGlobalApplicationHostFile />
     <MvcBuildViews Condition=" '$(MvcBuildViews)' == '' ">false</MvcBuildViews>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -48,7 +44,7 @@
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
     <UseVSHostingProcess>true</UseVSHostingProcess>
-    <CodeAnalysisRuleSet>..\Frontend.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet>..\FrontendSDL.ruleset</CodeAnalysisRuleSet>
     <CodeContractsEnableRuntimeChecking>False</CodeContractsEnableRuntimeChecking>
     <CodeContractsRuntimeOnlyPublicSurface>False</CodeContractsRuntimeOnlyPublicSurface>
     <CodeContractsRuntimeThrowOnFailure>True</CodeContractsRuntimeThrowOnFailure>
@@ -135,14 +131,8 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\DynamicData.EFCodeFirstProvider.0.3.0.0\lib\net40\DynamicData.EFCodeFirstProvider.dll</HintPath>
     </Reference>
-    <Reference Include="Elmah, Version=1.2.14706.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\elmah.corelibrary.1.2.2\lib\Elmah.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Elmah.Contrib.Mvc, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Elmah.Contrib.Mvc.1.0\lib\net40\Elmah.Contrib.Mvc.dll</HintPath>
+    <Reference Include="Elmah, Version=1.2.14706.0, Culture=neutral, PublicKeyToken=57eac04b2e0f138e, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\elmah.corelibrary.strongname.1.2.2\lib\Elmah.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
@@ -153,6 +143,10 @@
     <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\entityframework.6.1.3\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Hyak.Common, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Hyak.Common.1.0.2\lib\net45\Hyak.Common.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="ICSharpCode.SharpZipLib, Version=0.86.0.518, Culture=neutral, PublicKeyToken=1b03e6acf1164f73, processorArchitecture=MSIL">
@@ -220,39 +214,36 @@
       <HintPath>..\..\packages\MarkdownSharp.1.13.0.0\lib\35\MarkdownSharp.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.AI.Agent.Intercept, Version=1.2.1.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Microsoft.ApplicationInsights.Agent.Intercept.1.2.1\lib\net45\Microsoft.AI.Agent.Intercept.dll</HintPath>
+    <Reference Include="Microsoft.AI.Agent.Intercept, Version=2.0.6.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.ApplicationInsights.Agent.Intercept.2.0.6\lib\net45\Microsoft.AI.Agent.Intercept.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.AI.DependencyCollector, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Microsoft.ApplicationInsights.DependencyCollector.2.0.0\lib\net45\Microsoft.AI.DependencyCollector.dll</HintPath>
+    <Reference Include="Microsoft.AI.DependencyCollector, Version=2.2.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.ApplicationInsights.DependencyCollector.2.2.0\lib\net45\Microsoft.AI.DependencyCollector.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.AI.PerfCounterCollector, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Microsoft.ApplicationInsights.PerfCounterCollector.2.0.0\lib\net45\Microsoft.AI.PerfCounterCollector.dll</HintPath>
+    <Reference Include="Microsoft.AI.PerfCounterCollector, Version=2.2.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.ApplicationInsights.PerfCounterCollector.2.2.0\lib\net45\Microsoft.AI.PerfCounterCollector.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.AI.ServerTelemetryChannel, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel.2.0.0\lib\net45\Microsoft.AI.ServerTelemetryChannel.dll</HintPath>
+    <Reference Include="Microsoft.AI.ServerTelemetryChannel, Version=2.2.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel.2.2.0\lib\net45\Microsoft.AI.ServerTelemetryChannel.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.AI.Web, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Microsoft.ApplicationInsights.Web.2.0.0\lib\net45\Microsoft.AI.Web.dll</HintPath>
+    <Reference Include="Microsoft.AI.Web, Version=2.2.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.ApplicationInsights.Web.2.2.0\lib\net45\Microsoft.AI.Web.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.AI.WindowsServer, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Microsoft.ApplicationInsights.WindowsServer.2.0.0\lib\net45\Microsoft.AI.WindowsServer.dll</HintPath>
+    <Reference Include="Microsoft.AI.WindowsServer, Version=2.2.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.ApplicationInsights.WindowsServer.2.2.0\lib\net45\Microsoft.AI.WindowsServer.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Microsoft.ApplicationInsights, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Microsoft.ApplicationInsights.2.0.0\lib\net45\Microsoft.ApplicationInsights.dll</HintPath>
+    <Reference Include="Microsoft.ApplicationInsights, Version=2.2.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.ApplicationInsights.2.2.0\lib\net45\Microsoft.ApplicationInsights.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.ApplicationInsights.TraceListener, Version=2.2.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.ApplicationInsights.TraceListener.2.2.0\lib\net45\Microsoft.ApplicationInsights.TraceListener.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.ApplicationServer.Caching.Client, Version=101.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
@@ -284,6 +275,29 @@
       <HintPath>..\..\packages\Microsoft.AspNet.WebApi.MessageHandlers.Compression.1.3.0\lib\portable-net45+netcore45+wpa81+wp8+MonoAndroid1+MonoTouch1\Microsoft.AspNet.WebApi.MessageHandlers.Compression.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Microsoft.AspNetCore.Cryptography.Internal, Version=1.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNetCore.Cryptography.Internal.1.0.0\lib\net451\Microsoft.AspNetCore.Cryptography.Internal.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.AspNetCore.Cryptography.KeyDerivation, Version=1.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.AspNetCore.Cryptography.KeyDerivation.1.0.0\lib\net451\Microsoft.AspNetCore.Cryptography.KeyDerivation.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Azure.Common, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Azure.Common.2.0.4\lib\net45\Microsoft.Azure.Common.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Azure.Common.NetFramework, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Azure.Common.2.0.4\lib\net45\Microsoft.Azure.Common.NetFramework.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Azure.KeyVault, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Azure.KeyVault.1.0.0\lib\net45\Microsoft.Azure.KeyVault.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Azure.KeyVault.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Azure.KeyVault.Core.1.0.0\lib\net40\Microsoft.Azure.KeyVault.Core.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />
     <Reference Include="Microsoft.Data.Edm, Version=5.6.5.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
@@ -304,6 +318,14 @@
     <Reference Include="Microsoft.Data.Services.Client, Version=5.6.5.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\Microsoft.Data.Services.Client.5.6.5-beta\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.IdentityModel.Clients.ActiveDirectory, Version=3.13.4.878, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.IdentityModel.Clients.ActiveDirectory.3.13.4\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.IdentityModel.Clients.ActiveDirectory.Platform, Version=3.13.4.878, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.IdentityModel.Clients.ActiveDirectory.3.13.4\lib\net45\Microsoft.IdentityModel.Clients.ActiveDirectory.Platform.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.IdentityModel.Protocol.Extensions">
@@ -339,6 +361,18 @@
       <HintPath>..\..\packages\Microsoft.Owin.Security.OpenIdConnect.3.0.1\lib\net45\Microsoft.Owin.Security.OpenIdConnect.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Microsoft.Threading.Tasks, Version=1.0.12.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Bcl.Async.1.0.168\lib\net40\Microsoft.Threading.Tasks.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Threading.Tasks.Extensions, Version=1.0.12.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Bcl.Async.1.0.168\lib\net40\Microsoft.Threading.Tasks.Extensions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Threading.Tasks.Extensions.Desktop, Version=1.0.168.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Microsoft.Bcl.Async.1.0.168\lib\net40\Microsoft.Threading.Tasks.Extensions.Desktop.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Microsoft.Web.DistributedCache, Version=101.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\WindowsAzure.Caching.1.7.0.0\lib\net35-full\Microsoft.Web.DistributedCache.dll</HintPath>
@@ -369,10 +403,8 @@
       <HintPath>C:\Program Files\Microsoft SDKs\Azure\.NET SDK\v2.7\ref\Microsoft.WindowsAzure.ServiceRuntime.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Microsoft.WindowsAzure.Storage, Version=4.3.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\WindowsAzure.Storage.4.3.0\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Microsoft.WindowsAzure.Storage, Version=7.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\WindowsAzure.Storage.7.0.0\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.WindowsFabric.Common, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -385,38 +417,31 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="MonAgentListener, Version=33.1.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL" />
-    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Newtonsoft.Json.6.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
-    <Reference Include="NuGet.Common, Version=3.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\NuGet.Common.3.5.0-beta-final\lib\net45\NuGet.Common.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="NuGet.Common, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NuGet.Common.4.0.0\lib\net45\NuGet.Common.dll</HintPath>
     </Reference>
-    <Reference Include="NuGet.Frameworks, Version=3.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\NuGet.Frameworks.3.5.0-beta-final\lib\net45\NuGet.Frameworks.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="NuGet.Frameworks, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NuGet.Frameworks.4.0.0\lib\net45\NuGet.Frameworks.dll</HintPath>
     </Reference>
     <Reference Include="NuGet.Logging, Version=3.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\NuGet.Logging.3.5.0-beta-1160\lib\net45\NuGet.Logging.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="NuGet.Packaging, Version=3.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\NuGet.Packaging.3.5.0-beta-final\lib\net45\NuGet.Packaging.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="NuGet.Packaging, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NuGet.Packaging.4.0.0\lib\net45\NuGet.Packaging.dll</HintPath>
     </Reference>
-    <Reference Include="NuGet.Packaging.Core, Version=3.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\NuGet.Packaging.Core.3.5.0-beta-final\lib\net45\NuGet.Packaging.Core.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="NuGet.Packaging.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NuGet.Packaging.Core.4.0.0\lib\net45\NuGet.Packaging.Core.dll</HintPath>
     </Reference>
-    <Reference Include="NuGet.Packaging.Core.Types, Version=3.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\NuGet.Packaging.Core.Types.3.5.0-beta-final\lib\net45\NuGet.Packaging.Core.Types.dll</HintPath>
+    <Reference Include="NuGet.Packaging.Core.Types, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NuGet.Packaging.Core.Types.4.0.0\lib\net45\NuGet.Packaging.Core.Types.dll</HintPath>
+    </Reference>
+    <Reference Include="NuGet.Services.KeyVault, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NuGet.Services.KeyVault.1.0.0.0\lib\net45\NuGet.Services.KeyVault.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="NuGet.Services.Platform.Client, Version=3.0.29.0, Culture=neutral, processorArchitecture=MSIL">
@@ -424,10 +449,8 @@
       <HintPath>..\..\packages\NuGet.Services.Platform.Client.3.0.29-r-master\lib\portable-net45+wp80+win\NuGet.Services.Platform.Client.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="NuGet.Versioning, Version=3.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\NuGet.Versioning.3.5.0-beta-final\lib\net45\NuGet.Versioning.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="NuGet.Versioning, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\NuGet.Versioning.4.0.0\lib\net45\NuGet.Versioning.dll</HintPath>
     </Reference>
     <Reference Include="ODataNullPropagationVisitor, Version=0.5.4237.2641, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -459,6 +482,8 @@
       <HintPath>..\..\packages\RouteMagic.1.1.3\lib\net40\RouteMagic.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.Core" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.DirectoryServices.Protocols" />
     <Reference Include="System.IdentityModel" />
@@ -613,6 +638,7 @@
     <Compile Include="App_Start\NuGetODataV2FeedConfig.cs" />
     <Compile Include="App_Start\NuGetODataV1FeedConfig.cs" />
     <Compile Include="App_Start\NuGetODataConfig.cs" />
+    <Compile Include="App_Start\RuntimeServiceProvider.cs" />
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="App_Start\AutofacConfig.cs" />
     <Compile Include="Areas\Admin\Controllers\DeleteController.cs" />
@@ -655,13 +681,23 @@
     <Compile Include="Areas\Admin\ViewModels\SupportRequestAdminViewModel.cs" />
     <Compile Include="Areas\Admin\ViewModels\SupportRequestsViewModel.cs" />
     <Compile Include="Areas\Admin\ViewModels\SupportRequestViewModel.cs" />
+    <Compile Include="Authentication\AuthenticateExternalLoginResult.cs" />
     <Compile Include="Authentication\FeedOnlyModeException.cs" />
     <Compile Include="Authentication\Providers\Ldap\LdapAuthenticator.cs" />
     <Compile Include="Authentication\Providers\Ldap\LdapAuthenticatorConfiguration.cs" />
+    <Compile Include="Authentication\NuGetPackagePattern.cs" />
+    <Compile Include="Authentication\PasswordAuthenticationResult.cs" />
+    <Compile Include="Authentication\NuGetScopes.cs" />
     <Compile Include="Authentication\Providers\AuthenticatorT.cs" />
     <Compile Include="Authentication\Providers\AzureActiveDirectory\AzureActiveDirectoryAuthenticator.cs" />
     <Compile Include="Authentication\Providers\AzureActiveDirectory\AzureActiveDirectoryAuthenticatorConfiguration.cs" />
+    <Compile Include="Configuration\IGalleryConfigurationService.cs" />
+    <Compile Include="Configuration\SecretReader\CachingSecretReader.cs" />
+    <Compile Include="Configuration\SecretReader\EmptySecretReaderFactory.cs" />
+    <Compile Include="Configuration\SecretReader\ISecretReaderFactory.cs" />
+    <Compile Include="Configuration\SecretReader\SecretReaderFactory.cs" />
     <Compile Include="Controllers\NuGetContext.cs" />
+    <Compile Include="Diagnostics\ElmahHandleErrorAttribute.cs" />
     <Compile Include="Extensions\DateTimeExtensions.cs" />
     <Compile Include="Controllers\ODataV1FeedController.cs" />
     <Compile Include="Controllers\ODataV2CuratedFeedController.cs" />
@@ -700,6 +736,16 @@
     <Compile Include="Controllers\AppController.cs" />
     <Compile Include="Controllers\ErrorsController.cs" />
     <Compile Include="Controllers\PagesController.cs" />
+    <Compile Include="Filters\ApiScopeRequiredAttribute.cs" />
+    <Compile Include="GlobalSuppressions.cs" />
+    <Compile Include="Helpers\TelemetryResponseCodeFilter.cs" />
+    <Compile Include="Infrastructure\Authentication\CredentialBuilder.cs" />
+    <Compile Include="Infrastructure\Authentication\CredentialValidator.cs" />
+    <Compile Include="Infrastructure\Authentication\ICredentialBuilder.cs" />
+    <Compile Include="Infrastructure\Authentication\ICredentialValidator.cs" />
+    <Compile Include="Infrastructure\DateTimeProvider.cs" />
+    <Compile Include="Infrastructure\IDateTimeProvider.cs" />
+    <Compile Include="Infrastructure\PasswordValidationAttribute.cs" />
     <Compile Include="Migrations\201602181939424_RemovePackageStatistics.cs" />
     <Compile Include="Migrations\201602181939424_RemovePackageStatistics.Designer.cs">
       <DependentUpon>201602181939424_RemovePackageStatistics.cs</DependentUpon>
@@ -724,10 +770,73 @@
     <Compile Include="Migrations\201605250755294_AddIndexForUserEmailAddress.Designer.cs">
       <DependentUpon>201605250755294_AddIndexForUserEmailAddress.cs</DependentUpon>
     </Compile>
+    <Compile Include="Migrations\201605310704169_RemoveOldCredentialColumnsFromUsersTable.cs" />
+    <Compile Include="Migrations\201605310704169_RemoveOldCredentialColumnsFromUsersTable.Designer.cs">
+      <DependentUpon>201605310704169_RemoveOldCredentialColumnsFromUsersTable.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201606012049351_AddIndexForCredentialsUserKey.cs" />
+    <Compile Include="Migrations\201606012049351_AddIndexForCredentialsUserKey.Designer.cs">
+      <DependentUpon>201606012049351_AddIndexForCredentialsUserKey.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201606012058492_AddIndexForPackageLicenseReportsPackageKey.cs" />
+    <Compile Include="Migrations\201606012058492_AddIndexForPackageLicenseReportsPackageKey.Designer.cs">
+      <DependentUpon>201606012058492_AddIndexForPackageLicenseReportsPackageKey.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201606020741056_CredentialExpires.cs" />
+    <Compile Include="Migrations\201606020741056_CredentialExpires.Designer.cs">
+      <DependentUpon>201606020741056_CredentialExpires.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201607190813558_CredentialDoesNotExpire.cs" />
+    <Compile Include="Migrations\201607190813558_CredentialDoesNotExpire.Designer.cs">
+      <DependentUpon>201607190813558_CredentialDoesNotExpire.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201607190842411_CredentialLastUsed.cs" />
+    <Compile Include="Migrations\201607190842411_CredentialLastUsed.Designer.cs">
+      <DependentUpon>201607190842411_CredentialLastUsed.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201608251939567_AddPackageTypes.cs" />
+    <Compile Include="Migrations\201608251939567_AddPackageTypes.Designer.cs">
+      <DependentUpon>201608251939567_AddPackageTypes.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201609092252096_AddIndexCredentialExpires.cs" />
+    <Compile Include="Migrations\201609092252096_AddIndexCredentialExpires.Designer.cs">
+      <DependentUpon>201609092252096_AddIndexCredentialExpires.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201609092255576_AddIndexUsersEmail.cs" />
+    <Compile Include="Migrations\201609092255576_AddIndexUsersEmail.Designer.cs">
+      <DependentUpon>201609092255576_AddIndexUsersEmail.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201610042351343_AddUserFailedLogin.cs" />
+    <Compile Include="Migrations\201610042351343_AddUserFailedLogin.Designer.cs">
+      <DependentUpon>201610042351343_AddUserFailedLogin.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201609211206577_ApiKeyDescription.cs" />
+    <Compile Include="Migrations\201609211206577_ApiKeyDescription.Designer.cs">
+      <DependentUpon>201609211206577_ApiKeyDescription.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201609260823310_ScopedCredential.cs" />
+    <Compile Include="Migrations\201609260823310_ScopedCredential.Designer.cs">
+      <DependentUpon>201609260823310_ScopedCredential.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201609270831462_AddExpirationColumn.cs" />
+    <Compile Include="Migrations\201609270831462_AddExpirationColumn.Designer.cs">
+      <DependentUpon>201609270831462_AddExpirationColumn.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201701120413341_AddScopeCredentialKey.cs" />
+    <Compile Include="Migrations\201701120413341_AddScopeCredentialKey.Designer.cs">
+      <DependentUpon>201701120413341_AddScopeCredentialKey.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201611240011320_AddTriggerForPackagesLastEdited.cs" />
+    <Compile Include="Migrations\201611240011320_AddTriggerForPackagesLastEdited.Designer.cs">
+      <DependentUpon>201611240011320_AddTriggerForPackagesLastEdited.cs</DependentUpon>
+    </Compile>
     <Compile Include="OData\Conventions\CompositeODataKeyHelper.cs" />
     <Compile Include="OData\Conventions\EntitySetPropertyRoutingConvention.cs" />
     <Compile Include="OData\ODataServiceVersionHeaderPropagatingBatchHandler.cs" />
     <Compile Include="OData\QueryInterceptors\NormalizeVersionInterceptor.cs" />
+    <Compile Include="OData\QueryAllowed\ODataQueryFilter.cs" />
+    <Compile Include="OData\QueryAllowed\ODataQueryVerifier.cs" />
+    <Compile Include="OData\QueryAllowed\ODataQueryRequest.cs" />
     <Compile Include="OData\SearchService\SearchAdaptorResult.cs" />
     <Compile Include="OData\SearchService\SearchHijacker.cs" />
     <Compile Include="Diagnostics\DiagnosticsService.cs" />
@@ -1003,7 +1112,7 @@
     <Compile Include="Filters\CacheFilter.cs" />
     <Compile Include="Filters\CompressFilter.cs" />
     <Compile Include="Filters\RequiresAccountConfirmationAttribute.cs" />
-    <Compile Include="Helpers\AccordianHelper.cs" />
+    <Compile Include="Helpers\AccordeonHelper.cs" />
     <Compile Include="Helpers\HttpContextBaseExtensions.cs" />
     <Compile Include="Helpers\EnumHelper.cs" />
     <Compile Include="Helpers\FileHelper.cs" />
@@ -1016,9 +1125,7 @@
     <Compile Include="ImageResult.cs" />
     <Compile Include="Infrastructure\AntiForgeryErrorFilter.cs" />
     <Compile Include="Infrastructure\ApplicationVersionHelper.cs" />
-    <Compile Include="Infrastructure\AzureEntityList.cs" />
     <Compile Include="Infrastructure\ChallengeResult.cs" />
-    <Compile Include="Infrastructure\CredentialBuilder.cs" />
     <Compile Include="Infrastructure\Lucene\ExternalSearchService.cs" />
     <Compile Include="Infrastructure\MandatoryAttribute.cs" />
     <Compile Include="Infrastructure\NotEqualAttribute.cs" />
@@ -1028,7 +1135,6 @@
     <Compile Include="Infrastructure\SafeRedirectResult.cs" />
     <Compile Include="Infrastructure\StatisticsReport.cs" />
     <Compile Include="Infrastructure\SubtextAttribute.cs" />
-    <Compile Include="Infrastructure\TableErrorLog.cs" />
     <Compile Include="Authentication\AsyncFileUpload\AsyncFileUploadExtensions.cs" />
     <Compile Include="Authentication\AsyncFileUpload\AsyncFileUploadModule.cs" />
     <Compile Include="Authentication\AsyncFileUpload\AsyncFileUploadProgress.cs" />
@@ -1296,20 +1402,35 @@
     <Compile Include="PackageCurators\WebMatrixPackageCurator.cs" />
     <Compile Include="PackageCurators\Windows8PackageCurator.cs" />
     <Compile Include="Infrastructure\Lucene\NuGetQueryParser.cs" />
-    <Compile Include="Queries\PackageVersionsQuery.cs" />
-    <Compile Include="Queries\PackageIdsQuery.cs" />
+    <Compile Include="Queries\AutoCompleteDatabaseQuery.cs" />
+    <Compile Include="Queries\AutoCompleteServiceQuery.cs" />
+    <Compile Include="Queries\AutoCompleteServicePackageIdsQuery.cs" />
+    <Compile Include="Queries\AutoCompleteServicePackageVersionsQuery.cs" />
+    <Compile Include="Queries\IAutoCompletePackageIdsQuery.cs" />
+    <Compile Include="Queries\IAutoCompletePackageVersionsQuery.cs" />
+    <Compile Include="Queries\AutoCompleteDatabasePackageVersionsQuery.cs" />
+    <Compile Include="Queries\AutoCompleteDatabasePackageIdsQuery.cs" />
     <Compile Include="RequestModels\EditPackageRequest.cs" />
     <Compile Include="RequestModels\DeletePackagesRequest.cs" />
     <Compile Include="RequestModels\EditPackageVersionRequest.cs" />
     <Compile Include="RequestModels\ModifyCuratedPackageRequest.cs" />
     <Compile Include="RequestModels\CreateCuratedPackageRequest.cs" />
     <Compile Include="RequestModels\VerifyPackageRequest.cs" />
+    <Compile Include="Infrastructure\Authentication\LegacyHasher.cs" />
+    <Compile Include="Infrastructure\Authentication\V3Hasher.cs" />
+    <Compile Include="Authentication\ScopeEvaluator.cs" />
+    <Compile Include="Services\ITelemetryService.cs" />
+    <Compile Include="Services\ReflowPackageService.cs" />
+    <Compile Include="Services\TelemetryService.cs" />
+    <Compile Include="ViewModels\ScopeViewModel.cs" />
+    <Compile Include="ViewModels\PackageListSearchViewModel.cs" />
     <Compile Include="WebApi\PlainTextResult.cs" />
     <Compile Include="WebApi\QueryResult.cs" />
     <Compile Include="WebApi\QueryResultExtensions.cs" />
     <Content Include="App_Data\Files\Content\ReadOnly.md" />
     <Content Include="ApplicationInsights.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
     </Content>
     <Content Include="Areas\Admin\DynamicData\FieldTemplates\Url_Edit.ascx" />
     <Content Include="Areas\Admin\DynamicData\PageTemplates\ListDetails.aspx" />
@@ -1317,6 +1438,15 @@
     <Content Include="Content\Images\icons\azuread_64_blue.png" />
     <Content Include="Content\Images\icons\azuread_64_white.png" />
     <Content Include="Content\admin\SupportRequestStyles.css" />
+    <Content Include="Content\Images\icons\apiKey.png" />
+    <Content Include="Content\Images\icons\apiKeyExpired.png" />
+    <Content Include="Content\Images\icons\apiKeyLegacy.png" />
+    <Content Include="Content\Images\icons\apiKeyNew.png" />
+    <Content Include="Content\Images\icons\copy.png" />
+    <Content Include="Content\Images\icons\delete.png" />
+    <Content Include="Content\Images\icons\edit.png" />
+    <Content Include="Content\Images\icons\expire.png" />
+    <Content Include="Content\Images\icons\regenerate.png" />
     <Content Include="Content\themes\base\images\animated-overlay.gif" />
     <Content Include="Content\themes\base\images\ui-bg_flat_0_aaaaaa_40x100.png" />
     <Content Include="Content\themes\base\images\ui-bg_flat_75_ffffff_40x100.png" />
@@ -1505,7 +1635,7 @@
     <Compile Include="Configuration\AppConfiguration.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="App_Start\DefaultDependenciesModule.cs" />
-    <Compile Include="Services\CryptographyService.cs" />
+    <Compile Include="Infrastructure\Authentication\CryptographyService.cs" />
     <Compile Include="ExtensionMethods.cs" />
     <Compile Include="Services\FormsAuthenticationService.cs" />
     <Compile Include="Configuration\IAppConfiguration.cs" />
@@ -1520,6 +1650,7 @@
     </Compile>
     <Compile Include="Services\UserService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\AssemblyInfo.*.cs" />
     <Compile Include="RequestModels\SubmitPackageRequest.cs" />
     <Compile Include="RouteNames.cs" />
     <Compile Include="UrlExtensions.cs" />
@@ -1548,6 +1679,11 @@
     <Content Include="Branding\Views\Pages\Terms.cshtml" />
     <Content Include="Areas\Admin\Views\SupportRequest\Index.cshtml" />
     <Content Include="Areas\Admin\Views\SupportRequest\Admins.cshtml" />
+    <EmbeddedResource Include="OData\QueryAllowed\Data\apiv1packages.json" />
+    <EmbeddedResource Include="OData\QueryAllowed\Data\apiv1search.json" />
+    <EmbeddedResource Include="OData\QueryAllowed\Data\apiv2getupdates.json" />
+    <EmbeddedResource Include="OData\QueryAllowed\Data\apiv2packages.json" />
+    <EmbeddedResource Include="OData\QueryAllowed\Data\apiv2search.json" />
     <None Include="Scripts\jquery-1.11.0.intellisense.js" />
     <Content Include="Scripts\jquery-1.11.0.js" />
     <Content Include="Scripts\jquery-1.11.0.min.js" />
@@ -1583,6 +1719,7 @@
     <Content Include="Views\Authentication\_SignInLdap.cshtml" />
     <Content Include="Views\Packages\_InstallBadgeNuget.cshtml" />
     <Content Include="Views\Packages\_InstallBadgeChocolatey.cshtml" />
+    <Content Include="Views\Users\ApiKeys.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <CodeAnalysisDictionary Include="Properties\CodeAnalysisDictionary.xml" />
@@ -1686,8 +1823,8 @@
     <Content Include="Content\font\fontawesome-webfont.ttf" />
     <Content Include="Content\font\fontawesome-webfont.woff" />
     <Content Include="Content\font\FontAwesome.otf" />
-    <Content Include="packages.config" />
     <None Include="Properties\PublishProfiles\nuget-staging-frontend.pubxml" />
+    <Content Include="packages.config" />
     <Content Include="Scripts\perpackagestatsgraphs.js" />
     <Content Include="Scripts\statsgraphs.js" />
     <Content Include="Scripts\nugetgallery.js" />
@@ -1826,6 +1963,51 @@
     <EmbeddedResource Include="Migrations\201605250755294_AddIndexForUserEmailAddress.resx">
       <DependentUpon>201605250755294_AddIndexForUserEmailAddress.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201605310704169_RemoveOldCredentialColumnsFromUsersTable.resx">
+      <DependentUpon>201605310704169_RemoveOldCredentialColumnsFromUsersTable.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201606012049351_AddIndexForCredentialsUserKey.resx">
+      <DependentUpon>201606012049351_AddIndexForCredentialsUserKey.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201606012058492_AddIndexForPackageLicenseReportsPackageKey.resx">
+      <DependentUpon>201606012058492_AddIndexForPackageLicenseReportsPackageKey.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201606020741056_CredentialExpires.resx">
+      <DependentUpon>201606020741056_CredentialExpires.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201607190813558_CredentialDoesNotExpire.resx">
+      <DependentUpon>201607190813558_CredentialDoesNotExpire.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201607190842411_CredentialLastUsed.resx">
+      <DependentUpon>201607190842411_CredentialLastUsed.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201608251939567_AddPackageTypes.resx">
+      <DependentUpon>201608251939567_AddPackageTypes.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201609092252096_AddIndexCredentialExpires.resx">
+      <DependentUpon>201609092252096_AddIndexCredentialExpires.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201609092255576_AddIndexUsersEmail.resx">
+      <DependentUpon>201609092255576_AddIndexUsersEmail.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201610042351343_AddUserFailedLogin.resx">
+      <DependentUpon>201610042351343_AddUserFailedLogin.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201609211206577_ApiKeyDescription.resx">
+      <DependentUpon>201609211206577_ApiKeyDescription.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201609260823310_ScopedCredential.resx">
+      <DependentUpon>201609260823310_ScopedCredential.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201609270831462_AddExpirationColumn.resx">
+      <DependentUpon>201609270831462_AddExpirationColumn.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201701120413341_AddScopeCredentialKey.resx">
+      <DependentUpon>201701120413341_AddScopeCredentialKey.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201611240011320_AddTriggerForPackagesLastEdited.resx">
+      <DependentUpon>201611240011320_AddTriggerForPackagesLastEdited.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Strings.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Strings.Designer.cs</LastGenOutput>
@@ -1905,8 +2087,5 @@
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('..\..\packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets'))" />
-    <Error Condition="!Exists('..\..\packages\NuGet.Services.Build.3.0.13\build\NuGet.Services.Build.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\NuGet.Services.Build.3.0.13\build\NuGet.Services.Build.props'))" />
-    <Error Condition="!Exists('..\..\packages\NuGet.Services.Build.3.0.13\build\NuGet.Services.Build.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\NuGet.Services.Build.3.0.13\build\NuGet.Services.Build.targets'))" />
   </Target>
-  <Import Project="..\..\packages\NuGet.Services.Build.3.0.13\build\NuGet.Services.Build.targets" Condition="Exists('..\..\packages\NuGet.Services.Build.3.0.13\build\NuGet.Services.Build.targets')" />
 </Project>

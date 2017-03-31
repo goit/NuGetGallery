@@ -19,6 +19,7 @@ using MarkdownSharp;
 using Microsoft.Owin;
 using NuGet.Frameworks;
 using NuGet.Packaging;
+using NuGetGallery.Authentication;
 
 namespace NuGetGallery
 {
@@ -97,7 +98,7 @@ namespace NuGetGallery
                 else
                 {
                     foreach (var dependency in dependencyGroup.Packages.Select(
-                        d => new {d.Id, d.VersionRange, dependencyGroup.TargetFramework}))
+                        d => new { d.Id, d.VersionRange, dependencyGroup.TargetFramework }))
                     {
                         yield return new PackageDependency
                         {
@@ -108,6 +109,19 @@ namespace NuGetGallery
                     }
                 }
             }
+        }
+
+        public static IEnumerable<PackageType> AsPackageTypeEnumerable(this IEnumerable<NuGet.Packaging.Core.PackageType> packageTypes)
+        {
+            foreach (var packageType in packageTypes)
+            {
+                yield return new PackageType
+                {
+                    Name = packageType.Name,
+                    Version = packageType.Version.ToString()
+                };
+            }
+
         }
 
         public static string Flatten(this IEnumerable<string> list)
@@ -124,6 +138,11 @@ namespace NuGetGallery
         {
             return FlattenDependencies(
                 AsPackageDependencyEnumerable(dependencyGroups).ToList());
+        }
+
+        public static string Flatten(this IEnumerable<PackageType> packageTypes)
+        {
+            return String.Join("|", packageTypes.Select(d => String.Format(CultureInfo.InvariantCulture, "{0}:{1}", d.Name, d.Version)));
         }
 
         public static string Flatten(this ICollection<PackageDependency> dependencies)
@@ -253,6 +272,11 @@ namespace NuGetGallery
 
         public static MailAddress ToMailAddress(this User user)
         {
+            if (!user.Confirmed)
+            {
+                return new MailAddress(user.UnconfirmedEmailAddress, user.Username);
+            }
+
             return new MailAddress(user.EmailAddress, user.Username);
         }
 
@@ -349,9 +373,55 @@ namespace NuGetGallery
         public static string GetClaimOrDefault(this IEnumerable<Claim> self, string claimType)
         {
             return self
-                .Where(c => String.Equals(c.Type, claimType, StringComparison.OrdinalIgnoreCase))
+                .Where(c => string.Equals(c.Type, claimType, StringComparison.OrdinalIgnoreCase))
                 .Select(c => c.Value)
                 .FirstOrDefault();
+        }
+
+        public static bool HasScopeThatAllowsActionForSubject(
+            this IIdentity self, 
+            string subject,
+            string[] requestedActions)
+        {
+            var identity = self as ClaimsIdentity;
+
+            if (identity == null)
+            {
+                return false;
+            }
+
+            var scopeClaim = identity.GetClaimOrDefault(NuGetClaims.Scope);
+
+            return ScopeEvaluator.ScopeClaimsAllowsActionForSubject(scopeClaim, subject, requestedActions);
+        }
+
+        public static string GetAuthenticationType(this IIdentity self)
+        {
+            var identity = self as ClaimsIdentity;
+
+            return identity?.GetClaimOrDefault(ClaimTypes.AuthenticationMethod);
+        }
+
+        private static string GetScopeClaim(this IIdentity self)
+        {
+            var identity = self as ClaimsIdentity;
+
+            return identity?.GetClaimOrDefault(NuGetClaims.Scope);
+        }
+
+        public static bool IsScopedAuthentication(this IIdentity self)
+        {
+            var scopeClaim = self.GetScopeClaim();
+
+            return !ScopeEvaluator.IsEmptyScopeClaim(scopeClaim);
+        }
+
+        public static bool HasVerifyScope(this IIdentity self)
+        {
+            var scopeClaim = self.GetScopeClaim();
+
+            return ScopeEvaluator.ScopeClaimsAllowsActionForSubject(scopeClaim, subject: null,
+                requestedActions: new [] { NuGetScopes.PackageVerify });
         }
 
         // This is a method because the first call will perform a database call

@@ -89,6 +89,11 @@ namespace NuGetGallery.Configuration
         MailAddress GalleryOwner { get; set; }
 
         /// <summary>
+        /// Gets the gallery e-mail from name and email address
+        /// </summary>
+        MailAddress GalleryNoReplyAddress { get; set; }
+
+        /// <summary>
         /// Gets the storage mechanism used by this instance of the gallery
         /// </summary>
         StorageType StorageType { get; set; }
@@ -156,6 +161,26 @@ namespace NuGetGallery.Configuration
         string EnforcedAuthProviderForAdmin { get; set; }
 
         /// <summary>
+        /// The required format for a user password.
+        /// </summary>
+        string UserPasswordRegex { get; set; }
+
+        /// <summary>
+        /// A message to show the user, to explain password requirements.
+        /// </summary>
+        string UserPasswordHint { get; set; }
+
+        /// <summary>
+        /// Defines the time after which V1 API keys expire.
+        /// </summary>
+        int ExpirationInDaysForApiKeyV1 { get; set; }
+
+        /// <summary>
+        /// Defines the number of days before the API key expires when the server should emit a warning to the client.
+        /// </summary>
+        int WarnAboutExpirationInDaysForApiKeyV1 { get; set; }
+
+        /// <summary>
         /// Gets a string containing the PagerDuty account name.
         /// </summary>
         string PagerDutyAccountName { get; set; }
@@ -171,5 +196,10 @@ namespace NuGetGallery.Configuration
         /// </summary>
         // ReSharper disable once InconsistentNaming
         string PagerDutyServiceKey { get; set; }
+
+        /// <summary>
+        /// Gets/sets a bool that indicates if the OData requests will be filtered.
+        /// </summary>
+        bool IsODataFilterEnabled { get; set;  }
     }
 }

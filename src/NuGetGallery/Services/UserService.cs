@@ -18,7 +18,7 @@ namespace NuGetGallery
         public IAppConfiguration Config { get; protected set; }
         public IEntityRepository<User> UserRepository { get; protected set; }
         public IEntityRepository<Credential> CredentialRepository { get; protected set; }
-        public AuditingService Auditing { get; protected set; }
+        public IAuditingService Auditing { get; protected set; }
 
         protected UserService() { }
 
@@ -26,7 +26,7 @@ namespace NuGetGallery
             IAppConfiguration config,
             IEntityRepository<User> userRepository,
             IEntityRepository<Credential> credentialRepository,
-            AuditingService auditing)
+            IAuditingService auditing)
             : this()
         {
             Config = config;
@@ -97,7 +97,7 @@ namespace NuGetGallery
                 throw new EntityException(Strings.EmailAddressBeingUsed, newEmailAddress);
             }
 
-            await Auditing.SaveAuditRecord(new UserAuditRecord(user, UserAuditAction.ChangeEmail, newEmailAddress));
+            await Auditing.SaveAuditRecordAsync(new UserAuditRecord(user, AuditedUserAction.ChangeEmail, newEmailAddress));
 
             user.UpdateEmailAddress(newEmailAddress, Crypto.GenerateToken);
             await UserRepository.CommitChangesAsync();
@@ -105,7 +105,7 @@ namespace NuGetGallery
 
         public async Task CancelChangeEmailAddress(User user)
         {
-            await Auditing.SaveAuditRecord(new UserAuditRecord(user, UserAuditAction.CancelChangeEmail, user.UnconfirmedEmailAddress));
+            await Auditing.SaveAuditRecordAsync(new UserAuditRecord(user, AuditedUserAction.CancelChangeEmail, user.UnconfirmedEmailAddress));
 
             user.CancelChangeEmailAddress();
             await UserRepository.CommitChangesAsync();
@@ -144,7 +144,7 @@ namespace NuGetGallery
                 throw new EntityException(Strings.EmailAddressBeingUsed, user.UnconfirmedEmailAddress);
             }
 
-            await Auditing.SaveAuditRecord(new UserAuditRecord(user, UserAuditAction.ConfirmEmail, user.UnconfirmedEmailAddress));
+            await Auditing.SaveAuditRecordAsync(new UserAuditRecord(user, AuditedUserAction.ConfirmEmail, user.UnconfirmedEmailAddress));
 
             user.ConfirmEmailAddress();
 

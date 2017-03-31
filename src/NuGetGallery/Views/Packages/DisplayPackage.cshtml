@@ -1,4 +1,5 @@
 @model DisplayPackageViewModel
+
 @{
     ViewBag.Title = Model.Title + " " + Model.Version;
     ViewBag.Tab = "Packages";
@@ -18,8 +19,8 @@
     <meta property="og:type" content="nugetgallery:package" />
     <meta property="og:url" content="@absolutePackageUrl" />
     <meta property="og:description" content="@Model.Description" />
-    <meta property="og:determiner" content="a" />
-    <meta property="og:image" content="@(Model.IconUrl ?? Url.Absolute("~/Content/Images/packageDefaultIcon.png"))" />
+    <meta property="og:determiner" content="a"/>
+    <meta property="og:image" content="@(PackageHelper.ShouldRenderUrl(Model.IconUrl) ? Model.IconUrl : Url.Absolute("~/Content/Images/packageDefaultIcon.png"))"/>
 }
 @section Meta {
     @if (!Model.Listed || Model.Deleted)
@@ -28,7 +29,7 @@
     }
 }
 @section SideColumn {
-    <img class="logo" src="@(Model.IconUrl ?? Url.Absolute("~/Content/Images/packageDefaultIcon.png"))" alt="Icon for package @Model.Id" onerror="this.src = '@Url.Absolute("~/Content/Images/packageDefaultIcon.png")';" />
+    <img class="logo" src="@(PackageHelper.ShouldRenderUrl(Model.IconUrl) ? Model.IconUrl : Url.Absolute("~/Content/Images/packageDefaultIcon.png"))" alt="Icon for package @Model.Id" onerror="this.src = '@Url.Absolute("~/Content/Images/packageDefaultIcon.png")';" />
     <div id="stats">
         <div class="stat">
             <p class="stat-number">@Model.TotalDownloadCount.ToNuGetNumberString()</p>
@@ -49,17 +50,17 @@
     </div>
     <nav>
         <ul>
-            @if (!String.IsNullOrEmpty(Model.ProjectUrl))
+            @if (PackageHelper.ShouldRenderUrl(Model.ProjectUrl))
             {
                 <li>
-                    <a href="@Model.ProjectUrl" title="Visit the project site to learn more about this package">
+                    <a href="@Model.ProjectUrl" title="Visit the project site to learn more about this package" rel="nofollow">
                         Project Site
                     </a>
                 </li>
             }
-            @if (!String.IsNullOrEmpty(Model.LicenseUrl))
+            @if (PackageHelper.ShouldRenderUrl(Model.LicenseUrl))
             {
-                <li><a href="@Model.LicenseUrl" title="Make sure you agree with the license">License</a></li>
+                <li><a href="@Model.LicenseUrl" title="Make sure you agree with the license" rel="nofollow">License</a></li>
             }
             <li><a href="@Url.Action(actionName: "ContactOwners", controllerName: "Packages", routeValues: new { id = Model.Id })" title="Ask the package owners a question">Contact Owners</a></li>
             @if ((Model.IsOwner(User) || User.IsAdministrator()))
@@ -90,6 +91,10 @@
                 <li><a href="@Url.EditPackage(Model.Id, Model.Version)">Edit Package</a></li>
                 <li><a href="@Url.ManagePackageOwners(Model)">Manage Owners</a></li>
                 <li><a href="@Url.DeletePackage(Model)" class="delete">Delete Package</a></li>
+            }
+            @if (!Model.Deleted && User.IsAdministrator())
+            {
+                <li><a href="@Url.ReflowPackage(Model)">Reflow Package</a></li>
             }
             @if (StatisticsHelper.IsStatisticsPageAvailable)
             {
@@ -196,7 +201,7 @@
     @if (Model.LatestStableVersion && Model.HasNewerPrerelease)
     {
         <p class="not-latest-message">
-            There is a newer prerelease version of this package available. See the version list below for details.
+            There is a newer prerelease version of this package available.<br /> See the version list below for details.
         </p>
     }
 

@@ -20,6 +20,7 @@ using NuGet.Packaging;
 using NuGet.Versioning;
 using NuGetGallery.Areas.Admin;
 using NuGetGallery.AsyncFileUpload;
+using NuGetGallery.Auditing;
 using NuGetGallery.Configuration;
 using NuGetGallery.Filters;
 using NuGetGallery.Helpers;
@@ -50,6 +51,8 @@ namespace NuGetGallery
         private readonly EditPackageService _editPackageService;
         private readonly IPackageDeleteService _packageDeleteService;
         private readonly ISupportRequestService _supportRequestService;
+        private readonly IAuditingService _auditingService;
+        private readonly ITelemetryService _telemetryService;
 
         public PackagesController(
             IPackageService packageService,
@@ -64,7 +67,9 @@ namespace NuGetGallery
             ICacheService cacheService,
             EditPackageService editPackageService,
             IPackageDeleteService packageDeleteService,
-            ISupportRequestService supportRequestService)
+            ISupportRequestService supportRequestService,
+            IAuditingService auditingService,
+            ITelemetryService telemetryService)
         {
             _packageService = packageService;
             _uploadFileService = uploadFileService;
@@ -79,8 +84,11 @@ namespace NuGetGallery
             _editPackageService = editPackageService;
             _packageDeleteService = packageDeleteService;
             _supportRequestService = supportRequestService;
+            _auditingService = auditingService;
+            _telemetryService = telemetryService;
         }
 
+        [HttpGet]
         [Authorize]
         [OutputCache(NoStore = true, Duration = 0, VaryByParam = "None")]
         public virtual ActionResult UploadPackageProgress()
@@ -141,6 +149,8 @@ namespace NuGetGallery
             }
             else if (numOK > 0)
             {
+                await _auditingService.SaveAuditRecordAsync(new PackageAuditRecord(package, AuditedPackageAction.UndoEdit));
+
                 TempData["Message"] = "Your pending edits for this package were successfully canceled.";
             }
             else
@@ -223,28 +233,17 @@ namespace NuGetGallery
 
                     _packageService.EnsureValid(packageArchiveReader);
                 }
-                catch (InvalidPackageException ipex)
-                {
-                    ipex.Log();
-                    ModelState.AddModelError(String.Empty, ipex.Message);
-                    return View();
-                }
-                catch (InvalidDataException idex)
-                {
-                    idex.Log();
-                    ModelState.AddModelError(String.Empty, idex.Message);
-                    return View();
-                }
-                catch (EntityException enex)
-                {
-                    enex.Log();
-                    ModelState.AddModelError(String.Empty, enex.Message);
-                    return View();
-                }
                 catch (Exception ex)
                 {
                     ex.Log();
-                    ModelState.AddModelError(String.Empty, Strings.FailedToReadUploadFile);
+
+                    var message = Strings.FailedToReadUploadFile;
+                    if (ex is InvalidPackageException || ex is InvalidDataException || ex is EntityException)
+                    {
+                        message = ex.Message;
+                    }
+
+                    ModelState.AddModelError(String.Empty, message);
                     return View();
                 }
                 finally
@@ -343,8 +342,11 @@ namespace NuGetGallery
                 var isIndexed = HttpContext.Cache.Get(isIndexedCacheKey) as bool?;
                 if (!isIndexed.HasValue)
                 {
+                    var normalizedRegistrationId = package.PackageRegistration.Id
+                        .Normalize(NormalizationForm.FormC);
+
                     var searchFilter = SearchAdaptor.GetSearchFilter(
-                            "id:\"" + package.PackageRegistration.Id + "\" AND version:\"" + package.Version + "\"",
+                            "id:\"" + normalizedRegistrationId + "\" AND version:\"" + package.Version + "\"",
                             1, null, SearchFilter.ODataSearchContext);
 
                     searchFilter.IncludePrerelease = true;
@@ -375,8 +377,11 @@ namespace NuGetGallery
             return View(model);
         }
 
-        public virtual async Task<ActionResult> ListPackages(string q, int page = 1)
+        public virtual async Task<ActionResult> ListPackages(PackageListSearchViewModel searchAndListModel)
         {
+            var page = searchAndListModel.Page;
+            var q = searchAndListModel.Q;
+
             if (page < 1)
             {
                 page = 1;
@@ -456,6 +461,7 @@ namespace NuGetGallery
             ReportPackageReason.Other
         };
 
+        [HttpGet]
         public virtual ActionResult ReportAbuse(string id, string version)
         {
             var package = _packageService.FindPackageByIdAndVersion(id, version);
@@ -495,12 +501,12 @@ namespace NuGetGallery
 
         private static readonly ReportPackageReason[] ReportMyPackageReasons = {
             ReportPackageReason.ContainsPrivateAndConfidentialData,
-            ReportPackageReason.PublishedWithWrongVersion,
             ReportPackageReason.ReleasedInPublicByAccident,
             ReportPackageReason.ContainsMaliciousCode,
             ReportPackageReason.Other
         };
 
+        [HttpGet]
         [Authorize]
         [RequiresAccountConfirmation("contact support about your package")]
         public virtual ActionResult ReportMyPackage(string id, string version)
@@ -636,6 +642,7 @@ namespace NuGetGallery
             return Redirect(Url.Package(id, version));
         }
 
+        [HttpGet]
         [Authorize]
         [RequiresAccountConfirmation("contact package owners")]
         public virtual ActionResult ContactOwners(string id)
@@ -703,11 +710,13 @@ namespace NuGetGallery
         }
 
         // This is the page that explains why there's no download link.
+        [HttpGet]
         public virtual ActionResult Download()
         {
             return View();
         }
 
+        [HttpGet]
         [Authorize]
         public virtual ActionResult ManagePackageOwners(string id)
         {
@@ -725,7 +734,8 @@ namespace NuGetGallery
 
             return View(model);
         }
-
+        
+        [HttpGet]
         [Authorize]
         [RequiresAccountConfirmation("delete a package")]
         public virtual ActionResult Delete(string id, string version)
@@ -742,6 +752,40 @@ namespace NuGetGallery
 
             var model = new DeletePackageViewModel(package, ReportMyPackageReasons);
             return View(model);
+        }
+
+        [Authorize(Roles = "Admins")]
+        [RequiresAccountConfirmation("reflow a package")]
+        public virtual async Task<ActionResult> Reflow(string id, string version)
+        {
+            var package = _packageService.FindPackageByIdAndVersion(id, version);
+
+            if (package == null)
+            {
+                return HttpNotFound();
+            }
+            
+            var reflowPackageService = new ReflowPackageService(
+                _entitiesContext, 
+                (PackageService) _packageService,
+                _packageFileService);
+
+            try
+            {
+                await reflowPackageService.ReflowAsync(id, version);
+
+                TempData["Message"] =
+                    "The package is being reflowed. It may take a while for this change to propagate through our system.";
+            }
+            catch (Exception ex)
+            {
+                TempData["Message"] =
+                    $"An error occurred while reflowing the package. {ex.Message}";
+
+                QuietLog.LogHandledException(ex);
+            }
+
+            return SafeRedirect(Url.Package(id, version));
         }
 
         [Authorize(Roles = "Admins")]
@@ -809,6 +853,7 @@ namespace NuGetGallery
             return await Edit(id, version, listed, Url.Package);
         }
 
+        [HttpGet]
         [Authorize]
         [RequiresAccountConfirmation("edit a package")]
         public virtual ActionResult Edit(string id, string version)
@@ -871,6 +916,10 @@ namespace NuGetGallery
                 {
                     _editPackageService.StartEditPackageRequest(package, formData.Edit, user);
                     await _entitiesContext.SaveChangesAsync();
+
+                    var packageWithEditsApplied = formData.Edit.ApplyTo(package);
+
+                    await _auditingService.SaveAuditRecordAsync(new PackageAuditRecord(packageWithEditsApplied, AuditedPackageAction.Edit));
                 }
                 catch (EntityException ex)
                 {
@@ -1123,14 +1172,37 @@ namespace NuGetGallery
 
                 // save package to blob storage
                 uploadFile.Position = 0;
-                await _packageFileService.SavePackageFileAsync(package, uploadFile.AsSeekableStream());
+                try
+                {
+                    await _packageFileService.SavePackageFileAsync(package, uploadFile.AsSeekableStream());
+                }
+                catch (InvalidOperationException ex)
+                {
+                    ex.Log();
+                    TempData["Message"] = Strings.UploadPackage_IdVersionConflict;
+                    return new RedirectResult(Url.VerifyPackage());
+                }
 
-                // commit all changes to database as an atomic transaction
-                await _entitiesContext.SaveChangesAsync();
+                try
+                {
+                    // commit all changes to database as an atomic transaction
+                    await _entitiesContext.SaveChangesAsync();
+                }
+                catch
+                {
+                    // If saving to the DB fails for any reason we need to delete the package we just saved.
+                    await _packageFileService.DeletePackageFileAsync(packageMetadata.Id, packageMetadata.Version.ToNormalizedString());
+                    throw;
+                }
 
                 // tell Lucene to update index for the new package
                 _indexingService.UpdateIndex();
 
+                // write an audit record
+                await _auditingService.SaveAuditRecordAsync(
+                    new PackageAuditRecord(package, AuditedPackageAction.Create, PackageCreatedVia.Web));
+
+                // notify user
                 _messageService.SendPackageAddedNotice(package,
                     Url.Action("DisplayPackage", "Packages", routeValues: new { id = package.PackageRegistration.Id, version = package.Version }, protocol: Request.Url.Scheme),
                     Url.Action("ReportMyPackage", "Packages", routeValues: new { id = package.PackageRegistration.Id, version = package.Version }, protocol: Request.Url.Scheme),
@@ -1139,6 +1211,8 @@ namespace NuGetGallery
 
             // delete the uploaded binary in the Uploads container
             await _uploadFileService.DeleteUploadFileAsync(currentUser.Key);
+
+            _telemetryService.TrackPackagePushEvent(package, currentUser, User.Identity);
 
             TempData["Message"] = String.Format(
                 CultureInfo.CurrentCulture, Strings.SuccessfullyUploadedPackage, package.PackageRegistration.Id, package.Version);

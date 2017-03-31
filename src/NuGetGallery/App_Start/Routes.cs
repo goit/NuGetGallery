@@ -101,22 +101,22 @@ namespace NuGetGallery
 
             var uploadPackageRoute = routes.MapRoute(
                 RouteName.UploadPackage,
-                "packages/upload",
+                "packages/manage/upload",
                 new { controller = "Packages", action = "UploadPackage" });
 
             routes.MapRoute(
                 RouteName.UploadPackageProgress,
-                "packages/upload-progress",
+                "packages/manage/upload-progress",
                 new { controller = "Packages", action = "UploadPackageProgress" });
 
             routes.MapRoute(
                 RouteName.VerifyPackage,
-                "packages/verify-upload",
+                "packages/manage/verify-upload",
                 new { controller = "Packages", action = "VerifyPackage" });
 
             routes.MapRoute(
                 RouteName.CancelUpload,
-                "packages/cancel-upload",
+                "packages/manage/cancel-upload",
                 new { controller = "Packages", action = "CancelUpload" });
 
             routes.MapRoute(
@@ -284,7 +284,16 @@ namespace NuGetGallery
                 {
                     controller = "Api",
                     action = "VerifyPackageKey",
-                    id = UrlParameter.Optional,
+                    version = UrlParameter.Optional
+                });
+
+            routes.MapRoute(
+                "v1" + RouteName.CreatePackageVerificationKey,
+                "api/v1/package/create-verification-key/{id}/{version}",
+                new
+                {
+                    controller = "Api",
+                    action = "CreatePackageVerificationKey",
                     version = UrlParameter.Optional
                 });
 
@@ -379,7 +388,16 @@ namespace NuGetGallery
                 {
                     controller = "Api",
                     action = "VerifyPackageKey",
-                    id = UrlParameter.Optional,
+                    version = UrlParameter.Optional
+                });
+
+            routes.MapRoute(
+                "v2" + RouteName.CreatePackageVerificationKey,
+                "api/v2/package/create-verification-key/{id}/{version}",
+                new
+                {
+                    controller = "Api",
+                    action = "CreatePackageVerificationKey",
                     version = UrlParameter.Optional
                 });
 

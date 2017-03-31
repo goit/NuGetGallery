@@ -195,7 +195,7 @@ The {0} Team";
             {
                 mailMessage.Subject = String.Format(CultureInfo.CurrentCulture, "[{0}] Please verify your account.", Config.GalleryOwner.DisplayName);
                 mailMessage.Body = body;
-                mailMessage.From = Config.GalleryOwner;
+                mailMessage.From = Config.GalleryNoReplyAddress;
 
                 mailMessage.To.Add(toAddress);
                 SendMessage(mailMessage);
@@ -225,7 +225,7 @@ The {0} Team";
                 mailMessage.Subject = String.Format(
                     CultureInfo.CurrentCulture, "[{0}] Please verify your new email address.", Config.GalleryOwner.DisplayName);
                 mailMessage.Body = body;
-                mailMessage.From = Config.GalleryOwner;
+                mailMessage.From = Config.GalleryNoReplyAddress;
 
                 mailMessage.To.Add(newEmailAddress);
                 SendMessage(mailMessage);
@@ -255,7 +255,7 @@ The {0} Team";
             {
                 mailMessage.Subject = subject;
                 mailMessage.Body = body;
-                mailMessage.From = Config.GalleryOwner;
+                mailMessage.From = Config.GalleryNoReplyAddress;
 
                 mailMessage.To.Add(new MailAddress(oldEmailAddress, user.Username));
                 SendMessage(mailMessage);
@@ -264,27 +264,28 @@ The {0} Team";
 
         public void SendPasswordResetInstructions(User user, string resetPasswordUrl, bool forgotPassword)
         {
-            string body = String.Format(
+            string body = string.Format(
                 CultureInfo.CurrentCulture,
                 forgotPassword ? Strings.Emails_ForgotPassword_Body : Strings.Emails_SetPassword_Body,
-                Constants.DefaultPasswordResetTokenExpirationHours,
                 resetPasswordUrl,
                 Config.GalleryOwner.DisplayName);
 
-            string subject = String.Format(CultureInfo.CurrentCulture, forgotPassword ? Strings.Emails_ForgotPassword_Subject : Strings.Emails_SetPassword_Subject, Config.GalleryOwner.DisplayName);
+            string subject = string.Format(
+                CultureInfo.CurrentCulture, forgotPassword ? Strings.Emails_ForgotPassword_Subject : Strings.Emails_SetPassword_Subject,
+                Config.GalleryOwner.DisplayName);
+
             using (var mailMessage = new MailMessage())
             {
                 mailMessage.Subject = subject;
                 mailMessage.Body = body;
-                mailMessage.From = Config.GalleryOwner;
+                mailMessage.From = Config.GalleryNoReplyAddress;
 
                 mailMessage.To.Add(user.ToMailAddress());
                 SendMessage(mailMessage);
             }
         }
 
-
-        public void SendPackageOwnerRequest(User fromUser, User toUser, PackageRegistration package, string confirmationUrl)
+        public void SendPackageOwnerRequest(User fromUser, User toUser, PackageRegistration package, string confirmationUrl, string message)
         {
             if (!toUser.EmailAllowed)
             {
@@ -293,23 +294,29 @@ The {0} Team";
 
             const string subject = "[{0}] The user '{1}' wants to add you as an owner of the package '{2}'.";
 
-            string body = @"The user '{0}' wants to add you as an owner of the package '{1}'.
+            string body = string.Format(CultureInfo.CurrentCulture, $@"The user '{fromUser.Username}' wants to add you as an owner of the package '{package.Id}'.
 If you do not want to be listed as an owner of this package, simply delete this email.
 
 To accept this request and become a listed owner of the package, click the following URL:
 
-[{2}]({2})
+[{confirmationUrl}]({confirmationUrl})");
 
-Thanks,
-The {3} Team";
 
-            body = String.Format(CultureInfo.CurrentCulture, body, fromUser.Username, package.Id, confirmationUrl, Config.GalleryOwner.DisplayName);
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                body += Environment.NewLine + Environment.NewLine + string.Format(CultureInfo.CurrentCulture, $@"The user '{fromUser.Username}' added the following message for you:
+
+'{message}'");
+            }
+
+            body += Environment.NewLine + Environment.NewLine + $@"Thanks,
+The {Config.GalleryOwner.DisplayName} Team";
 
             using (var mailMessage = new MailMessage())
             {
                 mailMessage.Subject = String.Format(CultureInfo.CurrentCulture, subject, Config.GalleryOwner.DisplayName, fromUser.Username, package.Id);
                 mailMessage.Body = body;
-                mailMessage.From = Config.GalleryOwner;
+                mailMessage.From = Config.GalleryNoReplyAddress;
                 mailMessage.ReplyToList.Add(fromUser.ToMailAddress());
 
                 mailMessage.To.Add(toUser.ToMailAddress());
@@ -338,7 +345,7 @@ The {3} Team";
             {
                 mailMessage.Subject = String.Format(CultureInfo.CurrentCulture, subject, Config.GalleryOwner.DisplayName, fromUser.Username, package.Id);
                 mailMessage.Body = body;
-                mailMessage.From = Config.GalleryOwner;
+                mailMessage.From = Config.GalleryNoReplyAddress;
                 mailMessage.ReplyToList.Add(fromUser.ToMailAddress());
 
                 mailMessage.To.Add(toUser.ToMailAddress());
@@ -348,20 +355,61 @@ The {3} Team";
 
         public void SendCredentialRemovedNotice(User user, Credential removed)
         {
-            SendCredentialChangeNotice(
-                user,
-                removed,
-                Strings.Emails_CredentialRemoved_Body,
-                Strings.Emails_CredentialRemoved_Subject);
+            if (CredentialTypes.IsApiKey(removed.Type))
+            {
+                SendApiKeyChangeNotice(
+                    user,
+                    removed,
+                    Strings.Emails_ApiKeyRemoved_Body,
+                    Strings.Emails_CredentialRemoved_Subject);
+            }
+            else
+            {
+                SendCredentialChangeNotice(
+                    user,
+                    removed,
+                    Strings.Emails_CredentialRemoved_Body,
+                    Strings.Emails_CredentialRemoved_Subject);
+            }
+            
         }
 
         public void SendCredentialAddedNotice(User user, Credential added)
         {
-            SendCredentialChangeNotice(
-                user,
-                added,
-                Strings.Emails_CredentialAdded_Body,
-                Strings.Emails_CredentialAdded_Subject);
+            if (CredentialTypes.IsApiKey(added.Type))
+            {
+                SendApiKeyChangeNotice(
+                    user,
+                    added,
+                    Strings.Emails_ApiKeyAdded_Body,
+                    Strings.Emails_CredentialAdded_Subject);
+            }
+            else
+            {
+                SendCredentialChangeNotice(
+                    user,
+                    added,
+                    Strings.Emails_CredentialAdded_Body,
+                    Strings.Emails_CredentialAdded_Subject);
+            }
+        }
+
+        private void SendApiKeyChangeNotice(User user, Credential changed, string bodyTemplate, string subjectTemplate)
+        {
+            var credViewModel = AuthService.DescribeCredential(changed);
+
+            string body = String.Format(
+                CultureInfo.CurrentCulture,
+                bodyTemplate,
+                credViewModel.Description);
+
+            string subject = String.Format(
+                CultureInfo.CurrentCulture,
+                subjectTemplate,
+                Config.GalleryOwner.DisplayName,
+                Strings.CredentialType_ApiKey);
+
+            SendSupportMessage(user, body, subject);
         }
 
         private void SendCredentialChangeNotice(User user, Credential changed, string bodyTemplate, string subjectTemplate)
@@ -374,11 +422,13 @@ The {3} Team";
                 CultureInfo.CurrentCulture,
                 bodyTemplate,
                 name);
+
             string subject = String.Format(
                 CultureInfo.CurrentCulture,
                 subjectTemplate,
                 Config.GalleryOwner.DisplayName,
                 name);
+
             SendSupportMessage(user, body, subject);
         }
 
@@ -439,15 +489,15 @@ The {3} Team";
                     var senderCopy = new MailMessage(
                         Config.GalleryOwner,
                         mailMessage.ReplyToList.First())
-                        {
-                            Subject = mailMessage.Subject + " [Sender Copy]",
-                            Body = String.Format(
+                    {
+                        Subject = mailMessage.Subject + " [Sender Copy]",
+                        Body = String.Format(
                                 CultureInfo.CurrentCulture,
                                 "You sent the following message via {0}: {1}{1}{2}",
                                 Config.GalleryOwner.DisplayName,
                                 Environment.NewLine,
                                 mailMessage.Body),
-                        };
+                    };
                     senderCopy.ReplyToList.Add(mailMessage.ReplyToList.First());
                     MailSender.Send(senderCopy);
                 }
@@ -478,8 +528,8 @@ The {3} Team";
             body = String.Format(
                 CultureInfo.CurrentCulture,
                 body,
-                Config.GalleryOwner.DisplayName, 
-                package.PackageRegistration.Id, 
+                Config.GalleryOwner.DisplayName,
+                package.PackageRegistration.Id,
                 package.Version,
                 packageUrl,
                 packageSupportUrl,
@@ -491,7 +541,7 @@ The {3} Team";
             {
                 mailMessage.Subject = subject;
                 mailMessage.Body = body;
-                mailMessage.From = Config.GalleryOwner;
+                mailMessage.From = Config.GalleryNoReplyAddress;
 
                 AddOwnersSubscribedToPackagePushedNotification(package.PackageRegistration, mailMessage);
 

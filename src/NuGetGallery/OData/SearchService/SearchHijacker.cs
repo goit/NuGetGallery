@@ -8,7 +8,9 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Web.Http.OData.Query;
 using Microsoft.Data.Edm;
+using Microsoft.Data.OData;
 using Microsoft.Data.OData.Query;
+using Microsoft.Data.OData.Query.SemanticAst;
 using NuGetGallery.WebApi;
 
 namespace NuGetGallery.OData
@@ -29,17 +31,11 @@ namespace NuGetGallery.OData
 
         public static bool IsHijackable(ODataQueryOptions<V2FeedPackage> options, out HijackableQueryParameters hijackable)
         {
-            if (options.Filter?.FilterClause != null
-                && options.Filter.FilterClause.Expression.Kind == QueryNodeKind.SingleValueFunctionCall
-                && options.Filter.FilterClause.ItemType.Definition.TypeKind == EdmTypeKind.Entity)
+            // Check if we can process the filter clause
+            if (!CanProcessFilterClause(options))
             {
-                var functionCallExpression = (SingleValueFunctionCallNode) options.Filter.FilterClause.Expression;
-                if (string.Equals(functionCallExpression.Name, "substringof", StringComparison.OrdinalIgnoreCase))
-                {
-                    // The 'substringof' function cannot be applied to an enumeration-typed argument
-                    hijackable = null;
-                    return false;
-                }
+                hijackable = null;
+                return false;
             }
 
             // Build expression (this works around all internal classes in the OData library - all we want is an expression tree)
@@ -90,6 +86,58 @@ namespace NuGetGallery.OData
             }
 
             hijackable = null;
+            return false;
+        }
+
+        private static bool CanProcessFilterClause(ODataQueryOptions<V2FeedPackage> options)
+        {
+            // Check if we can read the filter clause
+            try
+            {
+                var dummy = options.Filter?.FilterClause;
+            }
+            catch (ODataException)
+            {
+                // If that fails, we can't process the filter clause
+                return false;
+            }
+
+            // If the filter clause can be read, it may not be a valid expression tree.
+            // Example is '/api/v2/Packages?$filter=substringof(null,Id)' which throws ODataException:
+            //     "The 'substringof' function cannot be applied to an enumeration-typed argument."
+            // Skip hijacking queries that use a substringof filter due to the cost of validating PropertyAccess nodes
+            if (options.Filter?.FilterClause != null
+                && options.Filter.FilterClause.ItemType.Definition.TypeKind == EdmTypeKind.Entity)
+            {
+                var current = options.Filter.FilterClause.Expression;
+                while (current.Kind == QueryNodeKind.BinaryOperator)
+                {
+                    var currentBinaryNode = ((BinaryOperatorNode)current);
+                    if (IsSubstringOfFunctionCall(currentBinaryNode.Right))
+                    {
+                        return false;
+                    }
+                    current = currentBinaryNode.Left;
+                }
+                return !IsSubstringOfFunctionCall(current);
+            }
+
+            return true;
+        }
+
+        private static bool IsSubstringOfFunctionCall(SingleValueNode expression)
+        {
+            // If necessary, unwrap SingleValueFunctionCall from ConvertNode
+            if (expression.Kind == QueryNodeKind.Convert)
+            {
+                expression = ((ConvertNode)expression).Source;
+            }
+
+            if (expression.Kind == QueryNodeKind.SingleValueFunctionCall)
+            {
+                var functionCallExpression = (SingleValueFunctionCallNode)expression;
+                return string.Equals(functionCallExpression.Name, "substringof", StringComparison.OrdinalIgnoreCase);
+            }
             return false;
         }
 

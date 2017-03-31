@@ -8,8 +8,10 @@ using System.Threading.Tasks;
 using System.Web.Http;
 using System.Web.Http.OData;
 using System.Web.Http.OData.Query;
+using System.Web.Http.Results;
 using NuGetGallery.Configuration;
 using NuGetGallery.OData;
+using NuGetGallery.OData.QueryFilter;
 using NuGetGallery.WebApi;
 using WebApi.OutputCache.V2;
 
@@ -22,12 +24,12 @@ namespace NuGetGallery.Controllers
         private const int MaxPageSize = SearchAdaptor.MaxPageSize;
 
         private readonly IEntityRepository<Package> _packagesRepository;
-        private readonly ConfigurationService _configurationService;
+        private readonly IGalleryConfigurationService _configurationService;
         private readonly ISearchService _searchService;
 
         public ODataV1FeedController(
             IEntityRepository<Package> packagesRepository,
-            ConfigurationService configurationService,
+            IGalleryConfigurationService configurationService,
             ISearchService searchService)
             : base(configurationService)
         {
@@ -42,6 +44,12 @@ namespace NuGetGallery.Controllers
         [CacheOutput(NoCache = true)]
         public IHttpActionResult Get(ODataQueryOptions<V1FeedPackage> options)
         {
+            if (!ODataQueryVerifier.AreODataOptionsAllowed(options, ODataQueryVerifier.V1Packages, 
+                _configurationService.Current.IsODataFilterEnabled, nameof(Get)))
+            {
+                return BadRequest(ODataQueryVerifier.GetValidationFailedMessage(options));
+            }
+
             var queryable = _packagesRepository.GetAll()
                 .Where(p => !p.IsPrerelease && !p.Deleted)
                 .WithoutVersionSort()
@@ -170,7 +178,7 @@ namespace NuGetGallery.Controllers
                 }
             }
 
-            // Peform actual search
+            // Perform actual search
             var packages = _packagesRepository.GetAll()
                 .Include(p => p.PackageRegistration)
                 .Include(p => p.PackageRegistration.Owners)
@@ -196,6 +204,12 @@ namespace NuGetGallery.Controllers
 
                 return QueryResult(options, pagedQueryable, MaxPageSize, totalHits, (o, s, resultCount) =>
                    SearchAdaptor.GetNextLink(Request.RequestUri, resultCount, new { searchTerm, targetFramework }, o, s));
+            }
+
+            if (!ODataQueryVerifier.AreODataOptionsAllowed(options, ODataQueryVerifier.V1Search,
+                _configurationService.Current.IsODataFilterEnabled, nameof(Search)))
+            {
+                return BadRequest(ODataQueryVerifier.GetValidationFailedMessage(options));
             }
 
             // If not, just let OData handle things
