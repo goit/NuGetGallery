@@ -245,7 +245,7 @@
 
     @if (!Model.Deleted)
     {
-        if (Model.Tags.Contains("chocolatey"))
+        if (Model.Tags != null && Model.Tags.Contains("chocolatey"))
         {
             @Html.Partial("_InstallBadgeChocolatey", Model)
         }
