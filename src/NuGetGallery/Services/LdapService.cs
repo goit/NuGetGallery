@@ -22,7 +22,7 @@ namespace NuGetGallery.Services
         public LdapService(ConfigurationService configuration)
         {
             var ldapConfig = new LdapAuthenticatorConfiguration();
-            configuration.ResolveConfigObject(ldapConfig, "Auth.LdapUser.");
+            configuration.ResolveConfigObject(ldapConfig, "Auth.LdapUser.").Wait();
 
             this.Configuration = ldapConfig;
         }

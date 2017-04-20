@@ -35,7 +35,6 @@ namespace NuGetGallery.Authentication
         /// This ctor is used for test only.
         /// </summary>
         protected AuthenticationService()
-            : this(null, null, null, AuditingService.None, Enumerable.Empty<Authenticator>(), NullLdapService.Instance)
         {
             Auditing = AuditingService.None;
             Authenticators = new Dictionary<string, Authenticator>();
@@ -125,21 +124,17 @@ namespace NuGetGallery.Authentication
                 // Check if the user exists
                 if (user == null)
                 {
-//// <<<<<<< HEAD
-////                var ldapUser = this.Ldap.ValidateUsernameAndPassword(userNameOrEmail, password);
+                    var ldapUser = this.Ldap.ValidateUsernameAndPassword(userNameOrEmail, password);
 
-////                if (ldapUser != null)
-////                {
-////                    _trace.Information("Creating user from LDAP credentials: " + userNameOrEmail);
-////                    var ldapCredential = CredentialBuilder.CreateExternalCredential(AuthenticationTypes.LdapUser, ldapUser.Username, ldapUser.Identity);
-////                    return await this.Register(ldapUser.Username, ldapUser.Email, ldapCredential);
-////                }
-////                else
-////                {
-////                    _trace.Information("No such user: " + userNameOrEmail);
-////                    return null;
-////                }
-//// =======
+                    if (ldapUser != null)
+                    {
+                        _trace.Information($"Creating user from LDAP credentials: {userNameOrEmail}");
+                        var ldapCredential = _credentialBuilder.CreateExternalCredential(AuthenticationTypes.LdapUser, ldapUser.Username, ldapUser.Identity);
+
+                        var authUser = await this.Register(ldapUser.Username, ldapUser.Email, ldapCredential);
+                        return new PasswordAuthenticationResult(PasswordAuthenticationResult.AuthenticationResult.Success, authUser);
+                    }
+
                     _trace.Information("No such user: " + userNameOrEmail);
                     
                     await Auditing.SaveAuditRecordAsync(
@@ -157,24 +152,19 @@ namespace NuGetGallery.Authentication
 
                     return new PasswordAuthenticationResult(PasswordAuthenticationResult.AuthenticationResult.AccountLocked,
                         authenticatedUser: null, lockTimeRemainingMinutes: remainingMinutes);
-//// >>>>>>> v2017.03.27
                 }
 
                 // Validate the password
                 Credential matched;
                 if (!ValidatePasswordCredential(user.Credentials, password, out matched))
                 {
-//// <<<<<<< HEAD
-////                var isValid = this.Ldap.ValidateCredentials(user.Credentials, password, out matched);
-////                if (isValid)
-////                {
-////                    _trace.Verbose("Successfully authenticated '" + user.Username + "' with '" + matched.Type + "' credential");
-////                    return new AuthenticatedUser(user, matched);
-////                }
-////
-////                _trace.Information("Password validation failed: " + userNameOrEmail);
-////                return null;
-//// =======
+                    var isValid = this.Ldap.ValidateCredentials(user.Credentials, password, out matched);
+                    if (isValid)
+                    {
+                        _trace.Verbose($"Successfully authenticated '{user.Username}' with '{matched.Type}' credential");
+                        return new PasswordAuthenticationResult(PasswordAuthenticationResult.AuthenticationResult.Success, new AuthenticatedUser(user, matched));
+                    }
+
                     _trace.Information($"Password validation failed: {userNameOrEmail}");
 
                     await UpdateFailedLoginAttempt(user);
@@ -184,7 +174,6 @@ namespace NuGetGallery.Authentication
                             userNameOrEmail, AuditedAuthenticatedOperationAction.FailedLoginInvalidPassword));
 
                     return new PasswordAuthenticationResult(PasswordAuthenticationResult.AuthenticationResult.BadCredentials);
-//// >>>>>>> v2017.03.27
                 }
 
                 var passwordCredentials = user
