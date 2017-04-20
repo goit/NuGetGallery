@@ -17,13 +17,20 @@ Packages.dgml
 *.sln.docstates
 
 # Build results
-
 [Dd]ebug/
 [Rr]elease/
 x64/
-#build/ # We use this folder for our Build Scripts
 [Bb]in/
 [Oo]bj/
+
+# Files created and used by our build scripts
+build/ 
+tools/
+.nuget/CredentialProviderBundle.zip
+.nuget/CredentialProvider.VSS.exe
+.nuget/EULA_Microsoft Visual Studio Team Services Credential Provider.docx
+.nuget/ThirdPartyNotices.txt
+AssemblyInfo.g.cs
 
 # MSTest test Results
 [Tt]est[Rr]esult*/
@@ -149,7 +156,7 @@ Desktop.ini
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
 
-# Mac crap
+# Mac
 .DS_Store
 
 # NuGetGallery Specific Ignores
@@ -160,8 +167,6 @@ src/NuGetGallery/App_Data/Mail
 src/NuGetGallery/App_Data/Lucene
 !src/NuGetGallery/Views/Packages/
 !src/NuGetGallery/Branding/Views/Packages/
-!src/NuGetGallery.Operations/Tasks/Backups/
-!src/NuGetGallery.Cloud/*Content/bin
 
 # Kudu build folder
 build/artifacts/
@@ -171,3 +176,14 @@ build/artifacts/
 tests/Scripts/TestResults[*].trx
 src/NuGetGallery.Cloud/ecf/
 *.trx
+tests/functionaltests.*.xml
+Results.?.xml
+
+# Vs2015
+# The applicationhost.config is ignored, but already comitted on purpose
+# Reason: The localtest.me setting needs to be configured in the <sites>-section. 
+# See ReadMe.md for more information
+.vs/config/applicationhost.config
+src/NuGetGallery/App_Data/Files/auditing/
+artifacts/
+.vs

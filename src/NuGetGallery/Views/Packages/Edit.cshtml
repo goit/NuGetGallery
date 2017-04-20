@@ -264,11 +264,11 @@
                             <div id="Edit_RequiresLicenseAcceptanceField" style="width: 100%">
                                 <div class="form-field" style="display: inline">
                                     @Html.DropDownList("Edit.RequiresLicenseAcceptance",
-                                    new List<SelectListItem>
-                                    {
-                                        new SelectListItem { Text = "Yes", Value = "true" },
-                                        new SelectListItem { Text = "No", Value = "false" },
-                                    })
+                                        new List<SelectListItem>
+                                        {
+                                            new SelectListItem { Text = Strings.Yes, Value = "true" },
+                                            new SelectListItem { Text = Strings.No, Value = "false" },
+                                        })
                                     @Html.ValidationMessageFor(model => model.Edit.RequiresLicenseAcceptance)
                                 </div>
                             </div>
@@ -276,6 +276,9 @@
                     </li>
                 }
             }
+            <li>
+                <img src="@Url.Content("~/Content/images/required.png")" alt="Blue border on left means required." />
+            </li>
         </ul>
         <input type="submit" value="Save" title="Save Changes" />
         <a class="cancel" href="@Url.Package(Model.PackageId, Model.Version)" title="Cancel Changes and go back to package page.">Cancel</a>

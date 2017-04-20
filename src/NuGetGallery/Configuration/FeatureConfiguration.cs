@@ -1,10 +1,6 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
 
 namespace NuGetGallery.Configuration
 {
@@ -15,13 +11,19 @@ namespace NuGetGallery.Configuration
         /// </summary>
         [DefaultValue(true)] // Default: Enabled
         [Description("Displays reports on license data")]
-        public bool FriendlyLicenses { get; set; }
+        public virtual bool FriendlyLicenses { get; set; }
 
-        /// <summary>
-        /// Gets a boolean indicating if package restore via search is enabled.
+        /// Gets a boolean indicating if package download counts should be recorded in the local database.
         /// </summary>
         [DefaultValue(false)] // Default: Disabled
-        [Description("Handles package restore (FIndPackagesById()) via search service")]
-        public bool PackageRestoreViaSearch { get; set; }
+        [Description("Indicates if package download counts should be recorded in the local database")]
+        public virtual bool TrackPackageDownloadCountInLocalDatabase { get; set; }
+
+        /// <summary>
+        /// Gets a boolean indicating if social networks share buttons show be displayed.
+        /// </summary>
+        [DefaultValue(true)] // Default: Enabled
+        [Description("Displays social networks share buttons")]
+        public virtual bool DisplaySocialShareButtons { get; set; }
     }
 }

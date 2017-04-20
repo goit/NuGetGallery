@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Web;
 using Newtonsoft.Json.Linq;
 using NuGet.Services.Search.Client;
+using NuGet.Services.Search.Client.Correlation;
 using NuGetGallery.Configuration;
 using NuGetGallery.Diagnostics;
 
@@ -40,6 +41,20 @@ namespace NuGetGallery.Infrastructure.Lucene
         }
 
         public bool ContainsAllVersions { get { return true; } }
+
+        public ExternalSearchService()
+        {
+            // used for testing
+            if (_healthIndicatorStore == null)
+            {
+                _healthIndicatorStore = new BaseUrlHealthIndicatorStore(new NullHealthIndicatorLogger());
+            }
+
+            if (_client == null)
+            {
+                _client = new SearchClient(ServiceUri, "SearchGalleryQueryService/3.0.0-rc", null, _healthIndicatorStore, new TracingHttpHandler(Trace), new CorrelatingHttpClientHandler());
+            }
+        }
 
         public ExternalSearchService(IAppConfiguration config, IDiagnosticsService diagnostics)
         {
@@ -72,9 +87,10 @@ namespace NuGetGallery.Infrastructure.Lucene
             {
                 _healthIndicatorStore = new BaseUrlHealthIndicatorStore(new AppInsightsHealthIndicatorLogger());
             }
+
             if (_client == null)
             {
-                _client = new SearchClient(ServiceUri, config.SearchServiceResourceType, credentials, _healthIndicatorStore, new TracingHttpHandler(Trace));
+                _client = new SearchClient(ServiceUri, config.SearchServiceResourceType, credentials, _healthIndicatorStore, new TracingHttpHandler(Trace), new CorrelatingHttpClientHandler());
             }
         }
 
@@ -85,12 +101,12 @@ namespace NuGetGallery.Infrastructure.Lucene
             return _exists;
         }
 
-        public Task<SearchResults> RawSearch(SearchFilter filter)
+        public virtual Task<SearchResults> RawSearch(SearchFilter filter)
         {
             return SearchCore(filter, raw: true);
         }
 
-        public Task<SearchResults> Search(SearchFilter filter)
+        public virtual Task<SearchResults> Search(SearchFilter filter)
         {
             return SearchCore(filter, raw: false);
         }
@@ -104,7 +120,7 @@ namespace NuGetGallery.Infrastructure.Lucene
                 filter.SearchTerm,
                 projectTypeFilter: null,
                 includePrerelease: filter.IncludePrerelease,
-                curatedFeed: filter.CuratedFeed == null ? null : filter.CuratedFeed.Name,
+                curatedFeed: filter.CuratedFeed?.Name,
                 sortBy: filter.SortOrder,
                 skip: filter.Skip,
                 take: filter.Take,
@@ -119,7 +135,11 @@ namespace NuGetGallery.Infrastructure.Lucene
             if (result.IsSuccessStatusCode)
             {
                 var content = await result.ReadContent();
-                if (filter.CountOnly || content.TotalHits == 0)
+                if (content == null)
+                {
+                    results = new SearchResults(0, null, Enumerable.Empty<Package>().AsQueryable());
+                } 
+                else if (filter.CountOnly || content.TotalHits == 0)
                 {
                     results = new SearchResults(content.TotalHits, content.IndexTimestamp);
                 }
@@ -151,7 +171,7 @@ namespace NuGetGallery.Infrastructure.Lucene
                     {"Hits", results == null ? -1 : results.Hits},
                     {"StatusCode", (int)result.StatusCode},
                     {"SortOrder", filter.SortOrder.ToString()},
-                    {"CuratedFeed", filter.CuratedFeed == null ? null : filter.CuratedFeed.Name},
+                    {"CuratedFeed", filter.CuratedFeed?.Name},
                     {"Url", TryGetUrl()}
                 });
 
@@ -269,7 +289,7 @@ namespace NuGetGallery.Infrastructure.Lucene
                 LastUpdated = doc.Value<DateTime>("LastUpdated"),
                 LastEdited = doc.Value<DateTime?>("LastEdited"),
                 PackageRegistration = registration,
-                PackageRegistrationKey = registration == null ? 0 : registration.Key,
+                PackageRegistrationKey = registration?.Key ?? 0,
                 PackageFileSize = doc.Value<long>("PackageFileSize"),
                 ProjectUrl = doc.Value<string>("ProjectUrl"),
                 Published = doc.Value<DateTime>("Published"),
@@ -285,7 +305,8 @@ namespace NuGetGallery.Infrastructure.Lucene
                 LicenseUrl = doc.Value<string>("LicenseUrl"),
                 LicenseNames = doc.Value<string>("LicenseNames"),
                 LicenseReportUrl = doc.Value<string>("LicenseReportUrl"),
-                HideLicenseReport = doc.Value<bool>("HideLicenseReport")
+                HideLicenseReport = doc.Value<bool>("HideLicenseReport"),
+                Listed = doc.Value<bool>("Listed")
             };
         }
 

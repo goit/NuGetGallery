@@ -9,14 +9,14 @@ namespace NuGetGallery.Views
 {
     public abstract class NuGetViewBase : WebViewPage
     {
-        private Lazy<NuGetContext> _nugetContext;
+        private readonly Lazy<NuGetContext> _nugetContext;
 
         public NuGetContext NuGetContext
         {
             get { return _nugetContext.Value; }
         }
 
-        public ConfigurationService Config
+        public IGalleryConfigurationService Config
         {
             get { return NuGetContext.Config; }
         }
@@ -47,14 +47,14 @@ namespace NuGetGallery.Views
 
     public abstract class NuGetViewBase<T> : WebViewPage<T>
     {
-        private Lazy<NuGetContext> _nugetContext;
+        private readonly Lazy<NuGetContext> _nugetContext;
 
         public NuGetContext NuGetContext
         {
             get { return _nugetContext.Value; }
         }
 
-        public ConfigurationService Config
+        public IGalleryConfigurationService Config
         {
             get { return NuGetContext.Config; }
         }

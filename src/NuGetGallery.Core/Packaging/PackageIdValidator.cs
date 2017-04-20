@@ -15,7 +15,12 @@ namespace NuGetGallery.Packaging
         {
             if (packageId == null)
             {
-                throw new ArgumentNullException("packageId");
+                throw new ArgumentNullException(nameof(packageId));
+            }
+
+            if (String.Equals(packageId, "$id$", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
             }
 
             return IdRegex.IsMatch(packageId);
@@ -25,12 +30,12 @@ namespace NuGetGallery.Packaging
         {
             if (packageId == null)
             {
-                throw new ArgumentNullException("packageId");
+                throw new ArgumentNullException(nameof(packageId));
             }
 
             if (packageId.Length > CoreConstants.MaxPackageIdLength)
             {
-                throw new ArgumentException(string.Format("Id must not exceed {0} characters.", CoreConstants.MaxPackageIdLength));
+                throw new ArgumentException($"Id must not exceed {CoreConstants.MaxPackageIdLength} characters.");
             }
 
             if (!IsValidPackageId(packageId))

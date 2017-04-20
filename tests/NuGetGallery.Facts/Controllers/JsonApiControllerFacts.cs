@@ -1,8 +1,9 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-using System.Security.Principal;
+
+using System.Threading.Tasks;
 using System.Web;
-using Moq;
+using System.Web.Mvc;
 using NuGetGallery.Framework;
 using Xunit;
 
@@ -13,68 +14,87 @@ namespace NuGetGallery.Controllers
         public class TheAddPackageOwnerMethod : TestContainer
         {
             [Fact]
-            public void ReturnsFailureWhenPackageNotFound()
+            public async Task ReturnsFailureWhenPackageNotFound()
             {
                 var controller = GetController<JsonApiController>();
 
-                dynamic result = controller.AddPackageOwner("foo", "steve");
+                JsonResult result = await controller.AddPackageOwner("foo", "steve", "message");
+                dynamic data = result.Data;
 
-                Assert.False(result.success);
-                Assert.Equal("Package not found.", result.message);
+                Assert.False(data.success);
+                Assert.Equal("Package not found.", data.message);
             }
 
             [Fact]
-            public void DoesNotAllowNonPackageOwnerToAddPackageOwner()
+            public async Task DoesNotAllowNonPackageOwnerToAddPackageOwner()
             {
                 var controller = GetController<JsonApiController>();
                 GetMock<IPackageService>()
                     .Setup(svc => svc.FindPackageRegistrationById("foo"))
                     .Returns(new PackageRegistration());
 
-                dynamic result = controller.AddPackageOwner("foo", "steve");
+                JsonResult result = await controller.AddPackageOwner("foo", "steve", "message");
+                dynamic data = result.Data;
 
-                Assert.False(result.success);
-                Assert.Equal("You are not the package owner.", result.message);
+                Assert.False(data.success);
+                Assert.Equal("You are not the package owner.", data.message);
             }
 
             [Fact]
-            public void ReturnsFailureWhenRequestedNewOwnerDoesNotExist()
+            public async Task ReturnsFailureWhenRequestedNewOwnerDoesNotExist()
             {
+                var fakes = Get<Fakes>();
                 var controller = GetController<JsonApiController>();
                 GetMock<HttpContextBase>()
                     .Setup(c => c.User)
-                    .Returns(Fakes.Owner.ToPrincipal());
+                    .Returns(Fakes.ToPrincipal(fakes.Owner));
 
-                dynamic result = controller.AddPackageOwner(Fakes.Package.Id, "notARealUser");
+                JsonResult result = await controller.AddPackageOwner(fakes.Package.Id, "notARealUser", "message");
+                dynamic data = result.Data;
 
-                Assert.False(TestUtility.GetAnonymousPropertyValue<bool>(result, "success"));
-                Assert.Equal("Owner not found.", TestUtility.GetAnonymousPropertyValue<string>(result, "message"));
+                Assert.False(data.success);
+                Assert.Equal("Owner not found.", data.message);
             }
 
             [Fact]
-            public void CreatesPackageOwnerRequestSendsEmailAndReturnsPendingState()
+            public async Task CreatesPackageOwnerRequestSendsEmailAndReturnsPendingState()
             {
+                var fakes = Get<Fakes>();
+
                 var controller = GetController<JsonApiController>();
-                GetMock<HttpContextBase>()
+
+                var httpContextMock = GetMock<HttpContextBase>();
+                httpContextMock
                     .Setup(c => c.User)
-                    .Returns(Fakes.Owner.ToPrincipal());
+                    .Returns(Fakes.ToPrincipal(fakes.Owner))
+                    .Verifiable();
 
-                GetMock<IPackageService>()
-                    .Setup(p => p.CreatePackageOwnerRequest(Fakes.Package, Fakes.Owner, Fakes.User))
-                    .Returns(new PackageOwnerRequest { ConfirmationCode = "confirmation-code" });
+                var packageServiceMock = GetMock<IPackageService>();
+                packageServiceMock
+                    .Setup(p => p.CreatePackageOwnerRequestAsync(fakes.Package, fakes.Owner, fakes.User))
+                    .Returns(Task.FromResult(new PackageOwnerRequest { ConfirmationCode = "confirmation-code" }))
+                    .Verifiable();
 
-                dynamic result = controller.AddPackageOwner(Fakes.Package.Id, Fakes.User.Username);
+                var messageServiceMock = GetMock<IMessageService>();
+                messageServiceMock
+                    .Setup(m => m.SendPackageOwnerRequest(
+                        fakes.Owner,
+                        fakes.User,
+                        fakes.Package,
+                        "https://nuget.local/packages/FakePackage/owners/testUser/confirm/confirmation-code",
+                        "Hello World! Html Encoded &lt;3"))
+                    .Verifiable();
 
-                Assert.True(result.success);
-                Assert.Equal(Fakes.User.Username, result.name);
-                Assert.True(result.pending);
+                JsonResult result = await controller.AddPackageOwner(fakes.Package.Id, fakes.User.Username, "Hello World! Html Encoded <3");
+                dynamic data = result.Data;
 
-                GetMock<IMessageService>()
-                    .Verify(m => m.SendPackageOwnerRequest(
-                        Fakes.Owner,
-                        Fakes.User,
-                        Fakes.Package,
-                        "https://nuget.local/packages/FakePackage/owners/testUser/confirm/confirmation-code"));
+                Assert.True(data.success);
+                Assert.Equal(fakes.User.Username, data.name);
+                Assert.True(data.pending);
+
+                httpContextMock.Verify();
+                packageServiceMock.Verify();
+                messageServiceMock.Verify();
             }
         }
     }

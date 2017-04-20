@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html> 
+﻿<!DOCTYPE html>
 <html lang="en" class="static " data-root="@Href("~/")">
     <head>
         <meta charset="utf-8" />
@@ -7,8 +7,11 @@
         @RenderSection("Meta", required: false)
 
         <title>
-            @(Config.Current.Brand) 
+            @(Config.Current.Brand)
             @(String.IsNullOrWhiteSpace(ViewBag.Title) ? "" : "| " + ViewBag.Title)</title>
+
+        <link href="@Url.Content("~/favicon.ico")" rel="shortcut icon" type="image/x-icon"/>
+        <link title="NuGet.org" type="application/opensearchdescription+xml" href="@Url.Content("~/opensearch.xml")" rel="search">
 
         @Styles.Render("~/Content/css")
         @Styles.Render("~/Content/font-awesome/css")
@@ -16,7 +19,7 @@
         @Styles.Render("~/Content/font-awesome-ie7.min.css")
         <![endif]-->
 
-        <link href="@Url.Content("~/favicon.ico")" rel="shortcut icon" type="image/x-icon" />
+        @RenderSection("TopStyles", required: false)
 
         @Scripts.Render("~/Scripts/modernizr")
         @ViewHelpers.AnalyticsScript()
@@ -25,7 +28,13 @@
         @ViewHelpers.InstrumentationScript()
     </head>
     <body class="s-noclickonce">
-        <div id="service-alert"></div>
+        @if (!string.IsNullOrWhiteSpace(Config.Current.WarningBanner))
+        {
+            <div id="service-alert">
+                <div class="banner-warning">@Config.Current.WarningBanner</div>
+            </div>
+        }
+
         <div id="outer-wrapper">
             <div id="content-wrapper">
                 <header class="main">

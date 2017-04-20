@@ -6,7 +6,6 @@ using System.Web;
 using System.Web.Mvc;
 using System.Web.Routing;
 using Autofac;
-using Microsoft.Owin;
 using Moq;
 using NuGetGallery.Configuration;
 
@@ -47,8 +46,8 @@ namespace NuGetGallery.Framework
             var appCtrl = c as AppController;
             if (appCtrl != null)
             {
-                appCtrl.OwinContext = Container.Resolve<IOwinContext>();
-                appCtrl.NuGetContext.Config = Container.Resolve<ConfigurationService>();
+                appCtrl.SetOwinContextOverride(Fakes.CreateOwinContext());
+                appCtrl.NuGetContext.Config = Container.Resolve<IGalleryConfigurationService>();
             }
 
             return c;
@@ -59,13 +58,18 @@ namespace NuGetGallery.Framework
             var updater = new ContainerBuilder();
             updater.RegisterType<TService>().AsImplementedInterfaces().AsSelf();
             updater.Update(Container);
-            
+
             return Get<TService>();
         }
 
         protected FakeEntitiesContext GetFakeContext()
         {
-            var fakeContext = new FakeEntitiesContext();
+            var fakeContext = Container.Resolve<IEntitiesContext>() as FakeEntitiesContext;
+
+            if (fakeContext == null)
+            {
+                fakeContext = new FakeEntitiesContext();
+            }
 
             var updater = new ContainerBuilder();
             updater.RegisterInstance(fakeContext).As<IEntitiesContext>();
@@ -76,22 +80,20 @@ namespace NuGetGallery.Framework
             updater.RegisterInstance(new EntityRepository<PackageOwnerRequest>(fakeContext))
                 .As<IEntityRepository<PackageOwnerRequest>>();
 
-            updater.RegisterInstance(new EntityRepository<PackageStatistics>(fakeContext))
-                .As<IEntityRepository<PackageStatistics>>();
-
             updater.RegisterInstance(new EntityRepository<PackageRegistration>(fakeContext))
                 .As<IEntityRepository<PackageRegistration>>();
 
             updater.Update(Container);
-            
+
             return fakeContext;
         }
 
         protected T Get<T>()
         {
-            if(typeof(Controller).IsAssignableFrom(typeof(T))) {
+            if (typeof(Controller).IsAssignableFrom(typeof(T))) {
                 throw new InvalidOperationException("Use GetController<T> to get a controller instance");
             }
+
             return Container.Resolve<T>();
         }
 
@@ -109,7 +111,7 @@ namespace NuGetGallery.Framework
                     registerMock = true;
                 }
             }
-            
+
             if (registerMock || !Container.IsRegistered(typeof(T)))
             {
                 var mockInstance = (new Mock<T>() {CallBase = true}).Object;

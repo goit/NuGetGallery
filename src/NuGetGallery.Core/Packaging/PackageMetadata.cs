@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NuGet.Packaging;
+using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
 namespace NuGetGallery.Packaging
@@ -14,48 +15,55 @@ namespace NuGetGallery.Packaging
         private readonly Dictionary<string, string> _metadata;
         private readonly IReadOnlyCollection<PackageDependencyGroup> _dependencyGroups;
         private readonly IReadOnlyCollection<FrameworkSpecificGroup> _frameworkReferenceGroups;
+        private readonly IReadOnlyCollection<NuGet.Packaging.Core.PackageType> _packageTypes;
 
         public PackageMetadata(
             Dictionary<string, string> metadata,
             IEnumerable<PackageDependencyGroup> dependencyGroups, 
-            IEnumerable<FrameworkSpecificGroup> frameworkGroups)
+            IEnumerable<FrameworkSpecificGroup> frameworkGroups,
+            IEnumerable<NuGet.Packaging.Core.PackageType> packageTypes,
+            NuGetVersion minClientVersion)
         {
             _metadata = new Dictionary<string, string>(metadata, StringComparer.OrdinalIgnoreCase);
             _dependencyGroups = dependencyGroups.ToList().AsReadOnly();
             _frameworkReferenceGroups = frameworkGroups.ToList().AsReadOnly();
+            _packageTypes = packageTypes.ToList().AsReadOnly();
 
             SetPropertiesFromMetadata();
+            MinClientVersion = minClientVersion;
         }
 
         private void SetPropertiesFromMetadata()
         {
             Id = GetValue("id", string.Empty);
+
+            var versionString = GetValue("version", string.Empty);
+            if (versionString.IndexOf('.') < 0)
+            {
+                throw new FormatException(string.Format(CoreStrings.PackageMetadata_VersionStringInvalid, versionString));
+            }
             
             NuGetVersion nugetVersion;
-            if (NuGetVersion.TryParse(GetValue("version", string.Empty), out nugetVersion))
+            if (NuGetVersion.TryParse(versionString, out nugetVersion))
             {
                 Version = nugetVersion;
             }
-            if (NuGetVersion.TryParse(GetValue("minClientVersion", string.Empty), out nugetVersion))
-            {
-                MinClientVersion = nugetVersion;
-            }
 
-            IconUrl = GetValue((string) "iconUrl", (Uri) null);
-            ProjectUrl = GetValue((string) "projectUrl", (Uri) null);
-            LicenseUrl = GetValue((string) "licenseUrl", (Uri) null);
-            Copyright = GetValue((string) "copyright", (string) null);
-            Description = GetValue((string) "description", (string) null);
-            ReleaseNotes = GetValue((string) "releaseNotes", (string) null);
-            RequireLicenseAcceptance = GetValue("requireLicenseAcceptance", false);
-            Summary = GetValue((string) "summary", (string) null);
-            Title = GetValue((string) "title", (string) null);
-            Tags = GetValue((string) "tags", (string) null);
-            Language = GetValue((string) "language", (string) null);
+            IconUrl = GetValue(PackageMetadataStrings.IconUrl, (Uri) null);
+            ProjectUrl = GetValue(PackageMetadataStrings.ProjectUrl, (Uri) null);
+            LicenseUrl = GetValue(PackageMetadataStrings.LicenseUrl, (Uri) null);
+            Copyright = GetValue(PackageMetadataStrings.Copyright, (string) null);
+            Description = GetValue(PackageMetadataStrings.Description, (string) null);
+            ReleaseNotes = GetValue(PackageMetadataStrings.ReleaseNotes, (string) null);
+            RequireLicenseAcceptance = GetValue(PackageMetadataStrings.RequireLicenseAcceptance, false);
+            Summary = GetValue(PackageMetadataStrings.Summary, (string) null);
+            Title = GetValue(PackageMetadataStrings.Title, (string) null);
+            Tags = GetValue(PackageMetadataStrings.Tags, (string) null);
+            Language = GetValue(PackageMetadataStrings.Language, (string) null);
 
-            Owners = GetValue((string) "owners", (string) null);
+            Owners = GetValue(PackageMetadataStrings.Owners, (string) null);
 
-            var authorsString = GetValue("authors", Owners ?? string.Empty);
+            var authorsString = GetValue(PackageMetadataStrings.Authors, Owners ?? string.Empty);
             Authors = new List<string>(authorsString.Split(',').Select(author => author.Trim()));
         }
 
@@ -90,6 +98,11 @@ namespace NuGetGallery.Packaging
         public IReadOnlyCollection<FrameworkSpecificGroup> GetFrameworkReferenceGroups()
         {
             return _frameworkReferenceGroups;
+        }
+
+        public IReadOnlyCollection<NuGet.Packaging.Core.PackageType> GetPackageTypes()
+        {
+            return _packageTypes;
         }
 
         private string GetValue(string key, string alternateValue)
@@ -136,7 +149,9 @@ namespace NuGetGallery.Packaging
             return new PackageMetadata(
                 nuspecReader.GetMetadata().ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
                 nuspecReader.GetDependencyGroups(),
-                nuspecReader.GetFrameworkReferenceGroups()
+                nuspecReader.GetFrameworkReferenceGroups(),
+                nuspecReader.GetPackageTypes(),
+                nuspecReader.GetMinClientVersion()
            );
         }
     }

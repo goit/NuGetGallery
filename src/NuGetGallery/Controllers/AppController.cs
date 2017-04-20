@@ -14,17 +14,18 @@ namespace NuGetGallery
     {
         private IOwinContext _overrideContext;
 
-        public IOwinContext OwinContext
-        {
-            get { return _overrideContext ?? HttpContext.GetOwinContext(); }
-            set { _overrideContext = value; }
-        }
+        public IOwinContext OwinContext => _overrideContext ?? HttpContext.GetOwinContext();
 
-        public NuGetContext NuGetContext { get; private set; }
+        public NuGetContext NuGetContext { get; }
 
         public new ClaimsPrincipal User
         {
             get { return base.User as ClaimsPrincipal; }
+        }
+
+        public void SetOwinContextOverride(IOwinContext owinContext)
+        {
+            _overrideContext = owinContext;
         }
 
         protected AppController()
@@ -58,10 +59,10 @@ namespace NuGetGallery
             {
                 //no need to do the hassle for a child action
                 //set the culture from the request headers
-                var culture = Request.DetermineClientLocale();
-                if (culture != null)
+                var clientCulture = Request.DetermineClientCulture();
+                if (clientCulture != null)
                 {
-                    Thread.CurrentThread.CurrentCulture = culture;
+                    Thread.CurrentThread.CurrentCulture = clientCulture;
                 }
             }
 

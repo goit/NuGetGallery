@@ -1,5 +1,6 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
 using System.Collections.Generic;
 using System.Data.Entity;
@@ -8,6 +9,7 @@ using Crypto = NuGetGallery.CryptographyService;
 using NuGetGallery.Configuration;
 using NuGetGallery.Auditing;
 using System.Threading.Tasks;
+using NuGetGallery.Migrations;
 
 namespace NuGetGallery
 {
@@ -16,7 +18,7 @@ namespace NuGetGallery
         public IAppConfiguration Config { get; protected set; }
         public IEntityRepository<User> UserRepository { get; protected set; }
         public IEntityRepository<Credential> CredentialRepository { get; protected set; }
-        public AuditingService Auditing { get; protected set; }
+        public IAuditingService Auditing { get; protected set; }
 
         protected UserService() { }
 
@@ -24,7 +26,7 @@ namespace NuGetGallery
             IAppConfiguration config,
             IEntityRepository<User> userRepository,
             IEntityRepository<Credential> credentialRepository,
-            AuditingService auditing)
+            IAuditingService auditing)
             : this()
         {
             Config = config;
@@ -33,25 +35,26 @@ namespace NuGetGallery
             Auditing = auditing;
         }
 
-        public void ChangeEmailSubscription(User user, bool emailAllowed)
+        public async Task ChangeEmailSubscriptionAsync(User user, bool emailAllowed, bool notifyPackagePushed)
         {
             if (user == null)
             {
-                throw new ArgumentNullException("user");
+                throw new ArgumentNullException(nameof(user));
             }
 
             user.EmailAllowed = emailAllowed;
-            UserRepository.CommitChanges();
+            user.NotifyPackagePushed = notifyPackagePushed;
+            await UserRepository.CommitChangesAsync();
         }
 
         public virtual User FindByEmailAddress(string emailAddress)
         {
             var allMatches = UserRepository.GetAll()
-				.Include(u => u.Credentials)
+                .Include(u => u.Credentials)
                 .Include(u => u.Roles)
                 .Where(u => u.EmailAddress == emailAddress)
-				.Take(2)
-				.ToList();
+                .Take(2)
+                .ToList();
 
             if (allMatches.Count == 1)
             {
@@ -94,30 +97,40 @@ namespace NuGetGallery
                 throw new EntityException(Strings.EmailAddressBeingUsed, newEmailAddress);
             }
 
-            await Auditing.SaveAuditRecord(new UserAuditRecord(user, UserAuditAction.ChangeEmail, newEmailAddress));
+            await Auditing.SaveAuditRecordAsync(new UserAuditRecord(user, AuditedUserAction.ChangeEmail, newEmailAddress));
 
             user.UpdateEmailAddress(newEmailAddress, Crypto.GenerateToken);
-            UserRepository.CommitChanges();
+            await UserRepository.CommitChangesAsync();
         }
 
         public async Task CancelChangeEmailAddress(User user)
         {
-            await Auditing.SaveAuditRecord(new UserAuditRecord(user, UserAuditAction.CancelChangeEmail, user.UnconfirmedEmailAddress));
+            await Auditing.SaveAuditRecordAsync(new UserAuditRecord(user, AuditedUserAction.CancelChangeEmail, user.UnconfirmedEmailAddress));
 
             user.CancelChangeEmailAddress();
-            UserRepository.CommitChanges();
+            await UserRepository.CommitChangesAsync();
+        }
+
+        public async Task<IDictionary<int, string>> GetEmailAddressesForUserKeysAsync(IReadOnlyCollection<int> distinctUserKeys)
+        {
+            var results = await UserRepository.GetAll()
+                .Where(u => distinctUserKeys.Contains(u.Key))
+                .Select(u => new { u.Key, u.EmailAddress })
+                .ToDictionaryAsync(u => u.Key, u => u.EmailAddress);
+
+            return results;
         }
 
         public async Task<bool> ConfirmEmailAddress(User user, string token)
         {
             if (user == null)
             {
-                throw new ArgumentNullException("user");
+                throw new ArgumentNullException(nameof(user));
             }
 
             if (String.IsNullOrEmpty(token))
             {
-                throw new ArgumentNullException("token");
+                throw new ArgumentNullException(nameof(token));
             }
 
             if (user.EmailConfirmationToken != token)
@@ -131,11 +144,11 @@ namespace NuGetGallery
                 throw new EntityException(Strings.EmailAddressBeingUsed, user.UnconfirmedEmailAddress);
             }
 
-            await Auditing.SaveAuditRecord(new UserAuditRecord(user, UserAuditAction.ConfirmEmail, user.UnconfirmedEmailAddress));
+            await Auditing.SaveAuditRecordAsync(new UserAuditRecord(user, AuditedUserAction.ConfirmEmail, user.UnconfirmedEmailAddress));
 
             user.ConfirmEmailAddress();
 
-            UserRepository.CommitChanges();
+            await UserRepository.CommitChangesAsync();
             return true;
         }
     }

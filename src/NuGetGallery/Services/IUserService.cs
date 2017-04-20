@@ -1,6 +1,6 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-using System;
+
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -8,7 +8,7 @@ namespace NuGetGallery
 {
     public interface IUserService
     {
-        void ChangeEmailSubscription(User user, bool emailAllowed);
+        Task ChangeEmailSubscriptionAsync(User user, bool emailAllowed, bool notifyPackagePushed);
 
         User FindByEmailAddress(string emailAddress);
 
@@ -23,5 +23,7 @@ namespace NuGetGallery
         Task ChangeEmailAddress(User user, string newEmailAddress);
 
         Task CancelChangeEmailAddress(User user);
+
+        Task<IDictionary<int, string>> GetEmailAddressesForUserKeysAsync(IReadOnlyCollection<int> distinctUserKeys);
     }
 }

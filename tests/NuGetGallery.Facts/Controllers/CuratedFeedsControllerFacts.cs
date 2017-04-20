@@ -1,15 +1,13 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Claims;
-using System.Security.Principal;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
 using Moq;
-using NuGetGallery.Authentication;
 using NuGetGallery.Framework;
 using Xunit;
 
@@ -19,13 +17,17 @@ namespace NuGetGallery
     {
         public class TestableCuratedFeedsController : CuratedFeedsController
         {
+            public Fakes Fakes { get; }
+
             public TestableCuratedFeedsController()
             {
+                Fakes = new Fakes();
+
                 StubCuratedFeed = new CuratedFeed
                     { Key = 0, Name = "aName", Managers = new HashSet<User>(new[] { Fakes.User }) };
                 StubCuratedFeedService = new Mock<ICuratedFeedService>();
 
-                OwinContext = Fakes.CreateOwinContext();
+                SetOwinContextOverride(Fakes.CreateOwinContext());
 
                 StubCuratedFeedService
                     .Setup(stub => stub.GetFeedByName(It.IsAny<string>(), It.IsAny<bool>()))
@@ -46,7 +48,7 @@ namespace NuGetGallery
             public CuratedFeed StubCuratedFeed { get; set; }
             public Mock<ICuratedFeedService> StubCuratedFeedService { get; private set; }
             public Mock<ISearchService> StubSearchService { get; private set; }
-            
+
             protected internal override T GetService<T>()
             {
                 if (typeof(T) == typeof(ICuratedFeedService))
@@ -75,7 +77,7 @@ namespace NuGetGallery
             public void WillReturn403IfTheCurrentUsersIsNotAManagerOfTheCuratedFeed()
             {
                 var controller = new TestableCuratedFeedsController();
-                controller.SetCurrentUser(Fakes.Owner);
+                controller.SetCurrentUser(controller.Fakes.Owner);
 
                 var result = controller.CuratedFeed("aName") as HttpStatusCodeResult;
 
@@ -87,7 +89,7 @@ namespace NuGetGallery
             public void WillPassTheCuratedFeedNameToTheView()
             {
                 var controller = new TestableCuratedFeedsController();
-                
+
                 var viewModel = (controller.CuratedFeed("aName") as ViewResult).Model as CuratedFeedViewModel;
 
                 Assert.NotNull(viewModel);
@@ -98,11 +100,11 @@ namespace NuGetGallery
             public void WillPassTheCuratedFeedManagersToTheView()
             {
                 var controller = new TestableCuratedFeedsController();
-                
+
                 var viewModel = (controller.CuratedFeed("aName") as ViewResult).Model as CuratedFeedViewModel;
 
                 Assert.NotNull(viewModel);
-                Assert.Equal(Fakes.User.Username, viewModel.Managers.First());
+                Assert.Equal(controller.Fakes.User.Username, viewModel.Managers.First());
             }
 
             [Fact]
@@ -194,7 +196,7 @@ namespace NuGetGallery
                             Key = 89932,
                         }
                     },
-                    Owners = new [] 
+                    Owners = new []
                     {
                         new User
                         {

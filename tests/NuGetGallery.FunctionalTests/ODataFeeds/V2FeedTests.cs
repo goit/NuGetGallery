@@ -2,6 +2,7 @@
 // // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.ComponentModel;
+using System.Net;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
@@ -28,9 +29,14 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
         [Category("P0Tests")]
         public async Task ApiV2BaseUrlTest()
         {
-            string expectedText = @"<atom:title>Packages</atom:title>";
-            bool containsResponseText = await _odataHelper.ContainsResponseText(UrlHelper.V2FeedRootUrl, expectedText);
-            Assert.True(containsResponseText);
+            string expectedText1 = @"<atom:title";
+            string expectedText2 = @"Packages</atom:title>";
+
+            bool containsResponseText1 = await _odataHelper.ContainsResponseText(UrlHelper.V2FeedRootUrl, expectedText1);
+            Assert.True(containsResponseText1);
+
+            bool containsResponseText2 = await _odataHelper.ContainsResponseText(UrlHelper.V2FeedRootUrl, expectedText2);
+            Assert.True(containsResponseText2);
         }
 
         [Fact]
@@ -73,6 +79,23 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
         public async Task RestorePackageFromV2Feed()
         {
             await _odataHelper.DownloadPackageFromV2FeedWithOperation(Constants.TestPackageId, "1.0.0", "Restore");
+        }
+
+        [Theory]
+        [InlineData("Packages?$orderby=DownloadCount+asc&$select=Id&$top=3")]
+        [Description("Performs a OData request that will be rejected if not found by the search engine. The feature needs to be enabled for this test to pass.")]
+        [Priority(0)]
+        [Category("P0Tests")]
+        public async Task ODataQueryFilter(string requestParametrs)
+        {
+            //If the search engine will be changed to handle the types of requests passed as inputs; the test inputs need to be changed.
+            var request = UrlHelper.V2FeedRootUrl + requestParametrs;
+            await Assert.ThrowsAsync<WebException>(async () =>
+            {
+                using (await _odataHelper.SendRequest(request))
+                {
+                }
+            });
         }
     }
 }

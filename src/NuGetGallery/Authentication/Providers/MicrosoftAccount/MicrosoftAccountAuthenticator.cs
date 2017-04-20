@@ -17,7 +17,7 @@ namespace NuGetGallery.Authentication.Providers.MicrosoftAccount
     {
         public static readonly string DefaultAuthenticationType = "MicrosoftAccount";
 
-        protected override void AttachToOwinApp(ConfigurationService config, IAppBuilder app)
+        protected override void AttachToOwinApp(IGalleryConfigurationService config, IAppBuilder app)
         {
             var options = new MicrosoftAccountAuthenticationOptions();
             options.Scope.Add("wl.emails");
@@ -31,7 +31,8 @@ namespace NuGetGallery.Authentication.Providers.MicrosoftAccount
             return new AuthenticatorUI(
                 Strings.MicrosoftAccount_SignInMessage,
                 Strings.MicrosoftAccount_AccountNoun,
-                Strings.MicrosoftAccount_Caption)
+                Strings.MicrosoftAccount_Caption,
+                Strings.MicrosoftAccount_Description)
                 {
                     IconCssClass = "icon-windows"
                 };

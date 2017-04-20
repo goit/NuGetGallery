@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Data.Entity;
+using System.Threading.Tasks;
 
 namespace NuGetGallery
 {
@@ -39,6 +40,7 @@ namespace NuGetGallery
         public IDbSet<CuratedPackage> CuratedPackages { get; set; }
         public IDbSet<PackageRegistration> PackageRegistrations { get; set; }
         public IDbSet<Credential> Credentials { get; set; }
+        public IDbSet<Scope> Scopes { get; set; }
         public IDbSet<User> Users { get; set; }
 
         IDbSet<T> IEntitiesContext.Set<T>()
@@ -46,14 +48,14 @@ namespace NuGetGallery
             return base.Set<T>();
         }
 
-        public override int SaveChanges()
+        public override async Task<int> SaveChangesAsync()
         {
             if (ReadOnly)
             {
                 throw new ReadOnlyModeException("Save changes unavailable: the gallery is currently in read only mode, with limited service. Please try again later.");
             }
 
-            return base.SaveChanges();
+            return await base.SaveChangesAsync();
         }
 
         public void DeleteOnCommit<T>(T entity) where T : class
@@ -71,7 +73,7 @@ namespace NuGetGallery
             return Database;
         }
 
-#pragma warning disable 618 // TODO: remove Package.Authors completely once prodution services definitely no longer need it
+#pragma warning disable 618 // TODO: remove Package.Authors completely once production services definitely no longer need it
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Credential>()
@@ -79,6 +81,15 @@ namespace NuGetGallery
                 .HasRequired(c => c.User)
                     .WithMany(u => u.Credentials)
                     .HasForeignKey(c => c.UserKey);
+
+            modelBuilder.Entity<Scope>()
+                .HasKey(c => c.Key);
+
+            modelBuilder.Entity<Scope>()
+                .HasRequired<Credential>(sc => sc.Credential)
+                .WithMany(cr => cr.Scopes)
+                .HasForeignKey(sc => sc.CredentialKey)
+                .WillCascadeOnDelete(true);
 
             modelBuilder.Entity<PackageLicenseReport>()
                 .HasKey(r => r.Key)
@@ -141,14 +152,14 @@ namespace NuGetGallery
                 .HasForeignKey(pa => pa.PackageKey);
 
             modelBuilder.Entity<Package>()
-                .HasMany<PackageStatistics>(p => p.DownloadStatistics)
-                .WithRequired(ps => ps.Package)
-                .HasForeignKey(ps => ps.PackageKey);
-
-            modelBuilder.Entity<Package>()
                 .HasMany<PackageDependency>(p => p.Dependencies)
                 .WithRequired(pd => pd.Package)
                 .HasForeignKey(pd => pd.PackageKey);
+
+            modelBuilder.Entity<Package>()
+                .HasMany<PackageType>(p => p.PackageTypes)
+                .WithRequired(pt => pt.Package)
+                .HasForeignKey(pt => pt.PackageKey);
 
             modelBuilder.Entity<PackageEdit>()
                 .HasKey(pm => pm.Key);
@@ -182,9 +193,6 @@ namespace NuGetGallery
 
             modelBuilder.Entity<PackageAuthor>()
                 .HasKey(pa => pa.Key);
-
-            modelBuilder.Entity<PackageStatistics>()
-                .HasKey(ps => ps.Key);
 
             modelBuilder.Entity<PackageDependency>()
                 .HasKey(pd => pd.Key);

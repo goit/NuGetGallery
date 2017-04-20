@@ -1,22 +1,22 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
 using System.Security.Principal;
-using System.Text;
 using System.Threading.Tasks;
 using System.Web.Mvc;
 using Microsoft.Owin;
-using Microsoft.Owin.Security;
 using Moq;
 using NuGetGallery.Auditing;
 using NuGetGallery.Authentication.Providers;
 using NuGetGallery.Authentication.Providers.MicrosoftAccount;
 using NuGetGallery.Configuration;
 using NuGetGallery.Framework;
+using NuGetGallery.Infrastructure.Authentication;
 using Xunit;
 
 namespace NuGetGallery.Authentication
@@ -25,88 +25,145 @@ namespace NuGetGallery.Authentication
     {
         public class TheAuthenticateMethod : TestContainer
         {
-            [Fact]
-            public async Task GivenNoUserWithName_ItReturnsNull()
+            private Fakes _fakes;
+            private AuthenticationService _authenticationService;
+            private Mock<IDateTimeProvider> _dateTimeProviderMock;
+
+            public TheAuthenticateMethod()
             {
-                // Arrange
-                var service = Get<AuthenticationService>();
-
-                // Act
-                var result = await service.Authenticate("notARealUser", "password");
-
-                // Assert
-                Assert.Null(result);
+                _fakes = Get<Fakes>();
+                _dateTimeProviderMock = GetMock<IDateTimeProvider>();
+                _authenticationService = Get<AuthenticationService>();
             }
 
             [Fact]
-            public async Task GivenUserNameDoesNotMatchPassword_ItReturnsNull()
+            public async Task GivenNoUserWithName_ItReturnsFailure()
             {
-                // Arrange
-                var service = Get<AuthenticationService>();
-
                 // Act
-                var result = await service.Authenticate(Fakes.User.Username, "bogus password!!");
+                var result = await _authenticationService.Authenticate("notARealUser", "password");
 
                 // Assert
-                Assert.Null(result);
+                Assert.Equal(PasswordAuthenticationResult.AuthenticationResult.BadCredentials, result.Result);
+            }
+
+            [Fact]
+            public async Task WritesAuditRecordWhenGivenNoUserWithName()
+            {
+                // Act
+                await _authenticationService.Authenticate("notARealUser", "password");
+
+                // Assert
+                Assert.True(_authenticationService.Auditing.WroteRecord<FailedAuthenticatedOperationAuditRecord>(ar =>
+                    ar.Action == AuditedAuthenticatedOperationAction.FailedLoginNoSuchUser &&
+                    ar.UsernameOrEmail == "notARealUser"));
+            }
+
+            [Fact]
+            public async Task GivenUserNameDoesNotMatchPassword_ItReturnsFailure()
+            {
+                // Act
+                var result = await _authenticationService.Authenticate(_fakes.User.Username, "bogus password!!");
+
+                // Assert
+                Assert.Equal(PasswordAuthenticationResult.AuthenticationResult.BadCredentials, result.Result);
+            }
+
+            [Fact]
+            public async Task WritesAuditRecordWhenGivenUserNameDoesNotMatchPassword()
+            {
+                // Act
+                await _authenticationService.Authenticate(_fakes.User.Username, "bogus password!!");
+
+                // Assert
+                Assert.True(_authenticationService.Auditing.WroteRecord<FailedAuthenticatedOperationAuditRecord>(ar =>
+                    ar.Action == AuditedAuthenticatedOperationAction.FailedLoginInvalidPassword &&
+                    ar.UsernameOrEmail == _fakes.User.Username));
             }
 
             [Fact]
             public async Task GivenUserNameWithMatchingPasswordCredential_ItReturnsAuthenticatedUser()
             {
                 // Arrange
-                var service = Get<AuthenticationService>();
+                var user = _fakes.User;
 
                 // Act
-                var result = await service.Authenticate(Fakes.User.Username, Fakes.Password);
+                var result = await _authenticationService.Authenticate(user.Username, Fakes.Password);
 
                 // Assert
-                var expectedCred = Fakes.User.Credentials.SingleOrDefault(
-                    c => String.Equals(c.Type, CredentialTypes.Password.Pbkdf2, StringComparison.OrdinalIgnoreCase));
-                Assert.NotNull(result);
-                Assert.Same(Fakes.User, result.User);
-                Assert.Same(expectedCred, result.CredentialUsed);
+                var expectedCred = user.Credentials.SingleOrDefault(
+                    c => string.Equals(c.Type, CredentialBuilder.LatestPasswordType, StringComparison.OrdinalIgnoreCase));
+                Assert.Equal(result.Result, PasswordAuthenticationResult.AuthenticationResult.Success);
+                Assert.Same(user, result.AuthenticatedUser.User);
+                Assert.Same(expectedCred, result.AuthenticatedUser.CredentialUsed);
             }
 
-            [Fact]
-            public async Task GivenUserNameWithMatchingSha1PasswordCredential_ItMigratesHashToPbkdf2()
+            public static IEnumerable<object[]>
+                GivenUserNameWithMatchingOldPasswordCredential_ItMigratesHashToLatest_Input
+            {
+                get
+                {
+                    return new[]
+                    {
+                        new object[] {new Func<Fakes, User>(f => f.Pbkdf2User)},
+                        new object[] {new Func<Fakes, User>(f => f.ShaUser)}
+                    };
+                }
+            }
+
+            [Theory, MemberData("GivenUserNameWithMatchingOldPasswordCredential_ItMigratesHashToLatest_Input")]
+            public async Task GivenUserNameWithMatchingOldPasswordCredential_ItMigratesHashToLatest(
+                Func<Fakes, User> getUser)
             {
                 // Arrange
-                var service = Get<AuthenticationService>();
+                var user = getUser(_fakes);
 
                 // Act
-                var result = await service.Authenticate(Fakes.ShaUser.Username, Fakes.Password);
+                var result = await _authenticationService.Authenticate(user.Username, Fakes.Password);
 
                 // Assert
-                var expectedCred = Fakes.User.Credentials.SingleOrDefault(
-                    c => String.Equals(c.Type, CredentialTypes.Password.Pbkdf2, StringComparison.OrdinalIgnoreCase));
+                var expectedCred = user.Credentials.SingleOrDefault(
+                    c => string.Equals(c.Type, CredentialBuilder.LatestPasswordType, StringComparison.OrdinalIgnoreCase));
                 Assert.NotNull(expectedCred);
-                Assert.True(VerifyPasswordHash(expectedCred.Value, Constants.PBKDF2HashAlgorithmId, Fakes.Password));
+                Assert.True(VerifyPasswordHash(expectedCred.Value, CredentialBuilder.LatestPasswordType, Fakes.Password));
             }
 
-            [Fact]
-            public async Task GivenUserNameWithMatchingSha1PasswordCredential_ItWritesAuditRecordsOfMigration()
+            public static IEnumerable<object[]>
+                GivenUserNameWithMatchingOldPasswordCredential_ItWritesAuditRecordsOfMigration_Input
+            {
+                get
+                {
+                    return new[]
+                    {
+                        new object[] {new Func<Fakes, User>(f => f.Pbkdf2User)},
+                        new object[] {new Func<Fakes, User>(f => f.ShaUser)}
+                    };
+                }
+            }
+
+            [Theory, MemberData("GivenUserNameWithMatchingOldPasswordCredential_ItWritesAuditRecordsOfMigration_Input")]
+            public async Task GivenUserNameWithMatchingOldPasswordCredential_ItWritesAuditRecordsOfMigration(
+                Func<Fakes, User> getUser)
             {
                 // Arrange
-                var service = Get<AuthenticationService>();
-                var user = Fakes.CreateUser("testSha", CredentialBuilder.CreateSha1Password(Fakes.Password));
-                service.Entities.Users.Add(user);
+                var user = getUser(_fakes);
+                var oldCredentialType = user.Credentials.First().Type;
 
                 // Act
-                var result = await service.Authenticate(user.Username, Fakes.Password);
+                var result = await _authenticationService.Authenticate(user.Username, Fakes.Password);
 
                 // Assert
-                Assert.True(service.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.RemovedCredential &&
+                Assert.True(_authenticationService.Auditing.WroteRecord<UserAuditRecord>(ar =>
+                    ar.Action == AuditedUserAction.RemoveCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
-                    ar.AffectedCredential[0].Type == CredentialTypes.Password.Sha1 &&
+                    ar.AffectedCredential[0].Type == oldCredentialType &&
                     ar.AffectedCredential[0].Value == null));
-                Assert.True(service.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.AddedCredential &&
+
+                Assert.True(_authenticationService.Auditing.WroteRecord<UserAuditRecord>(ar =>
+                    ar.Action == AuditedUserAction.AddCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
-                    ar.AffectedCredential[0].Type == CredentialTypes.Password.Pbkdf2 &&
+                    ar.AffectedCredential[0].Type == CredentialBuilder.LatestPasswordType &&
                     ar.AffectedCredential[0].Value == null));
             }
 
@@ -115,68 +172,191 @@ namespace NuGetGallery.Authentication
             // uses a new Salt and thus produces a value that cannot be looked up in the DB. Instead,
             // we must look up the user and then verify the salted password hash.
             [Fact]
-            public void GivenPasswordCredential_ItThrowsArgumentException()
+            public async Task GivenPasswordCredential_ItThrowsArgumentException()
             {
                 // Arrange
-                var service = Get<AuthenticationService>();
-                var cred = CredentialBuilder.CreatePbkdf2Password("bogus");
+                var cred = new CredentialBuilder().CreatePasswordCredential("bogus");
 
                 // Act
-                var ex = Assert.Throws<ArgumentException>(() => service.Authenticate(cred));
+                var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await _authenticationService.Authenticate(cred));
 
                 // Assert
-                Assert.Equal(Strings.PasswordCredentialsCannotBeUsedHere + Environment.NewLine + "Parameter name: credential", ex.Message);
+                Assert.Equal(
+                    Strings.PasswordCredentialsCannotBeUsedHere + Environment.NewLine + "Parameter name: credential",
+                    ex.Message);
                 Assert.Equal("credential", ex.ParamName);
             }
 
             [Fact]
-            public void GivenInvalidApiKeyCredential_ItReturnsNull()
+            public async Task GivenInvalidApiKeyCredential_ItReturnsNull()
             {
-                // Arrange
-                var service = Get<AuthenticationService>();
-
                 // Act
-                var result = service.Authenticate(CredentialBuilder.CreateV1ApiKey());
+                var result = await _authenticationService.Authenticate(
+                    TestCredentialHelper.CreateV1ApiKey(Guid.NewGuid(), Fakes.ExpirationForApiKeyV1));
 
                 // Assert
                 Assert.Null(result);
             }
 
             [Fact]
-            public void GivenMatchingApiKeyCredential_ItReturnsTheUserAndMatchingCredential()
+            public async Task WritesAuditRecordWhenGivenInvalidApiKeyCredential()
+            {
+                // Act
+                await _authenticationService.Authenticate(TestCredentialHelper.CreateV1ApiKey(Guid.NewGuid(), TimeSpan.Zero));
+
+                // Assert
+                Assert.True(_authenticationService.Auditing.WroteRecord<FailedAuthenticatedOperationAuditRecord>(ar =>
+                    ar.Action == AuditedAuthenticatedOperationAction.FailedLoginNoSuchUser &&
+                    string.IsNullOrEmpty(ar.UsernameOrEmail)));
+            }
+
+            [Theory]
+            [InlineData(CredentialTypes.ApiKey.V1)]
+            [InlineData(CredentialTypes.ApiKey.V2)]
+            [InlineData(CredentialTypes.ApiKey.VerifyV1)]
+            public async Task GivenMatchingApiKeyCredential_ItReturnsTheUserAndMatchingCredential(string apiKeyType)
             {
                 // Arrange
-                var service = Get<AuthenticationService>();
-                var cred = Fakes.User.Credentials.Single(
-                    c => String.Equals(c.Type, CredentialTypes.ApiKeyV1, StringComparison.OrdinalIgnoreCase));
-                
+                var cred = _fakes.User.Credentials.Single(
+                    c => string.Equals(c.Type, apiKeyType, StringComparison.OrdinalIgnoreCase));
+
                 // Act
                 // Create a new credential to verify that it's a value-based lookup!
-                var result = service.Authenticate(CredentialBuilder.CreateV1ApiKey(Guid.Parse(cred.Value)));
+                var result = await _authenticationService.Authenticate(cred.Value);
 
                 // Assert
                 Assert.NotNull(result);
-                Assert.Same(Fakes.User, result.User);
+                Assert.Same(_fakes.User, result.User);
                 Assert.Same(cred, result.CredentialUsed);
             }
 
-            [Fact]
-            public void GivenMultipleMatchingCredentials_ItThrows()
+            [Theory]
+            [InlineData(CredentialTypes.ApiKey.V1)]
+            [InlineData(CredentialTypes.ApiKey.V2)]
+            [InlineData(CredentialTypes.ApiKey.VerifyV1)]
+            public async Task GivenMatchingApiKeyCredential_ItWritesCredentialLastUsed(string apiKeyType)
             {
                 // Arrange
+                var cred = _fakes.User.Credentials.Single(
+                    c => string.Equals(c.Type, apiKeyType, StringComparison.OrdinalIgnoreCase));
+
+                var referenceTime = DateTime.UtcNow;
+                _dateTimeProviderMock.SetupGet(x => x.UtcNow).Returns(referenceTime);
+
+                Assert.False(cred.LastUsed.HasValue);
+
+                // Act
+                // Create a new credential to verify that it's a value-based lookup!
+                var result =
+                    await
+                        _authenticationService.Authenticate(cred.Value);
+
+                // Assert
+                Assert.NotNull(result);
+                Assert.True(cred.LastUsed == referenceTime);
+                Assert.True(cred.LastUsed.HasValue);
+            }
+
+            [Fact]
+            public async Task GivenMatchingCredential_ItWritesCredentialLastUsed()
+            {
+                // Arrange
+                var cred = _fakes.User.Credentials.Single(c => c.Type.Contains(CredentialTypes.ExternalPrefix));
+
+                var referenceTime = DateTime.UtcNow;
+                _dateTimeProviderMock.SetupGet(x => x.UtcNow).Returns(referenceTime);
+                
+                Assert.False(cred.LastUsed.HasValue);
+
+                // Act
+                // Create a new credential to verify that it's a value-based lookup!
+                var result = await _authenticationService.Authenticate(TestCredentialHelper.CreateExternalCredential(cred.Value));
+
+                // Assert
+                Assert.NotNull(result);
+                Assert.True(cred.LastUsed == referenceTime);
+                Assert.True(cred.LastUsed.HasValue);
+            }
+
+            [Theory]
+            [InlineData(CredentialTypes.ApiKey.V1)]
+            [InlineData(CredentialTypes.ApiKey.V2)]
+            [InlineData(CredentialTypes.ApiKey.VerifyV1)]
+            public async Task GivenExpiredMatchingApiKeyCredential_ItReturnsNull(string apiKeyType)
+            {
+                // Arrange
+                var cred = _fakes.User.Credentials.Single(
+                    c => string.Equals(c.Type, apiKeyType, StringComparison.OrdinalIgnoreCase));
+
+                cred.Expires = DateTime.UtcNow.AddDays(-1);
+
+                // Act
+                // Create a new credential to verify that it's a value-based lookup!
+                var result = await _authenticationService.Authenticate(cred.Value);
+
+                // Assert
+                Assert.Null(result);
+            }
+
+            [Theory]
+            [InlineData(CredentialTypes.ApiKey.V1, true)]
+            [InlineData(CredentialTypes.ApiKey.V2, false)]
+            public async Task GivenMatchingApiKeyCredentialThatWasLastUsedTooLongAgo_ItReturnsNullAndExpiresTheApiKeyAndWritesAuditRecord(string apiKeyType, bool shouldExpire)
+            {
+                // Arrange
+                var config = GetMock<IAppConfiguration>();
+                config.SetupGet(m => m.ExpirationInDaysForApiKeyV1).Returns(10);
+
+                var cred = _fakes.User.Credentials.Single(c => string.Equals(c.Type, apiKeyType, StringComparison.OrdinalIgnoreCase));
+
+                // credential was last used < allowed last used
+                cred.LastUsed = DateTime.UtcNow.AddDays(-20);
+
                 var service = Get<AuthenticationService>();
+
+                // Act
+                // Create a new credential to verify that it's a value-based lookup!
+                var result = await service.Authenticate(cred.Value);
+
+                // Assert
+
+                if (shouldExpire)
+                {
+                    Assert.Null(result);
+                    Assert.True(cred.HasExpired);
+                    Assert.True(service.Auditing.WroteRecord<UserAuditRecord>(ar =>
+                        ar.Action == AuditedUserAction.ExpireCredential &&
+                        ar.Username == _fakes.User.Username));
+                }
+                else
+                {
+                    Assert.NotNull(result);
+                    Assert.False(cred.HasExpired);
+                    Assert.False(service.Auditing.WroteRecord<UserAuditRecord>(ar =>
+                       ar.Action == AuditedUserAction.ExpireCredential &&
+                       ar.Username == _fakes.User.Username));
+                }
+            }
+
+            [Fact]
+            public async Task GivenMultipleMatchingCredentials_ItThrows()
+            {
+                // Arrange
                 var entities = Get<IEntitiesContext>();
-                var cred = CredentialBuilder.CreateV1ApiKey();
+                var cred = TestCredentialHelper.CreateV1ApiKey(Guid.NewGuid(), Fakes.ExpirationForApiKeyV1);
                 cred.Key = 42;
                 var creds = entities.Set<Credential>();
                 creds.Add(cred);
-                creds.Add(CredentialBuilder.CreateV1ApiKey(Guid.Parse(cred.Value)));
+                creds.Add(TestCredentialHelper.CreateV1ApiKey(Guid.Parse(cred.Value), Fakes.ExpirationForApiKeyV1));
 
                 // Act
-                var ex = Assert.Throws<InvalidOperationException>(() => service.Authenticate(CredentialBuilder.CreateV1ApiKey(Guid.Parse(cred.Value))));
+                var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                    await
+                        _authenticationService.Authenticate(TestCredentialHelper.CreateV1ApiKey(Guid.Parse(cred.Value),
+                            Fakes.ExpirationForApiKeyV1)));
 
                 // Assert
-                Assert.Equal(String.Format(
+                Assert.Equal(string.Format(
                     CultureInfo.CurrentCulture,
                     Strings.MultipleMatchingCredentials,
                     cred.Type,
@@ -184,66 +364,179 @@ namespace NuGetGallery.Authentication
             }
 
             [Fact]
-            public async Task GivenOnlyASHA1PasswordItAuthenticatesUserAndReplacesItWithAPBKDF2Password()
+            public async Task WhenUserLoginFailsAfterFailureUserRecordIsUpdatedWithFailureDetails()
             {
-                var user = Fakes.CreateUser("tempUser", CredentialBuilder.CreateSha1Password("thePassword"));
-                var service = Get<AuthenticationService>();
-                service.Entities.Users.Add(user);
+                // Arrange
+                var currentTime = DateTime.UtcNow;
+                _dateTimeProviderMock.SetupGet(x => x.UtcNow).Returns(currentTime);
 
-                var foundByUserName = await service.Authenticate("tempUser", "thePassword");
+                _fakes.User.FailedLoginCount = 7;
+                _fakes.User.LastFailedLoginUtc = currentTime - TimeSpan.FromMinutes(1);
 
-                var cred = foundByUserName.User.Credentials.Single();
-                Assert.Same(user, foundByUserName.User);
-                Assert.Equal(CredentialTypes.Password.Pbkdf2, cred.Type);
-                Assert.True(CryptographyService.ValidateSaltedHash(cred.Value, "thePassword", Constants.PBKDF2HashAlgorithmId));
-                service.Entities.VerifyCommitChanges();
+                // Act
+                await _authenticationService.Authenticate(_fakes.User.Username, "bogus password!!");
+
+                // Assert
+                Assert.Equal(currentTime, _fakes.User.LastFailedLoginUtc);
+                Assert.Equal(8, _fakes.User.FailedLoginCount);
             }
 
             [Fact]
-            public async Task GivenASHA1AndAPBKDF2PasswordItAuthenticatesUserAndRemovesTheSHA1Password()
+            public async Task WhenUserLoginFailsAfterSuccessUserRecordIsUpdatedWithFailureDetails()
             {
-                var user = Fakes.CreateUser("tempUser", 
-                    CredentialBuilder.CreateSha1Password("thePassword"),
-                    CredentialBuilder.CreatePbkdf2Password("thePassword"));
-                var service = Get<AuthenticationService>();
-                service.Entities.Users.Add(user);
+                // Arrange
+                var currentTime = DateTime.UtcNow;
+                _dateTimeProviderMock.SetupGet(x => x.UtcNow).Returns(currentTime);
 
-                var foundByUserName = await service.Authenticate("tempUser", "thePassword");
+                _fakes.User.FailedLoginCount = 0;
+                _fakes.User.LastFailedLoginUtc = null;
 
-                var cred = foundByUserName.User.Credentials.Single();
-                Assert.Same(user, foundByUserName.User);
-                Assert.Equal(CredentialTypes.Password.Pbkdf2, cred.Type);
-                Assert.True(CryptographyService.ValidateSaltedHash(cred.Value, "thePassword", Constants.PBKDF2HashAlgorithmId));
-                service.Entities.VerifyCommitChanges();
+                // Act
+                await _authenticationService.Authenticate(_fakes.User.Username, "bogus password!!");
+
+                // Assert
+                Assert.Equal(currentTime, _fakes.User.LastFailedLoginUtc);
+                Assert.Equal(1, _fakes.User.FailedLoginCount);
+            }
+
+            [Fact]
+            public async Task WhenUserLoginSucceedsAfterFailureFailureDetailsAreReset()
+            {
+                // Arrange
+                var user = _fakes.User;
+                user.FailedLoginCount = 8;
+                user.LastFailedLoginUtc = DateTime.UtcNow;
+                _dateTimeProviderMock.SetupGet(x => x.UtcNow).Returns(user.LastFailedLoginUtc.Value + TimeSpan.FromSeconds(10));
+
+                // Act
+                var result = await _authenticationService.Authenticate(user.Username, Fakes.Password);
+
+                // Assert
+                Assert.Equal(PasswordAuthenticationResult.AuthenticationResult.Success, result.Result);
+                Assert.Same(user, result.AuthenticatedUser.User);
+                Assert.Equal(0, user.FailedLoginCount);
+                Assert.Null(user.LastFailedLoginUtc);
+            }
+
+            [Fact]
+            public async Task WhenUserLoginSucceedsAfterSuccessFailureDetailsAreReset()
+            {
+                // Arrange
+                var user = _fakes.User;
+                user.FailedLoginCount = 0;
+                user.LastFailedLoginUtc = DateTime.UtcNow;
+
+                // Act
+                var result = await _authenticationService.Authenticate(user.Username, Fakes.Password);
+
+                // Assert
+                Assert.Equal(PasswordAuthenticationResult.AuthenticationResult.Success, result.Result);
+                Assert.Same(user, result.AuthenticatedUser.User);
+                Assert.Equal(0, user.FailedLoginCount);
+                Assert.Null(user.LastFailedLoginUtc);
+            }
+
+            [Theory]
+            [MemberData("VerifyAccountLockoutTimeCalculation_Data")]
+            public async Task VerifyAccountLockoutTimeCalculation(int failureCount, DateTime? lastFailedLoginTime, DateTime currentTime, int expectedLockoutMinutesLeft)
+            {
+                // Arrange
+                var user = _fakes.User;
+                user.FailedLoginCount = failureCount;
+                user.LastFailedLoginUtc = lastFailedLoginTime;
+
+                _dateTimeProviderMock.SetupGet(x => x.UtcNow).Returns(currentTime);
+
+                // Act
+                var result = await _authenticationService.Authenticate(user.Username, Fakes.Password);
+
+                // Assert
+                var expectedResult = expectedLockoutMinutesLeft == 0
+                    ? PasswordAuthenticationResult.AuthenticationResult.Success
+                    : PasswordAuthenticationResult.AuthenticationResult.AccountLocked;
+
+                Assert.Equal(expectedResult, result.Result);
+                Assert.Equal(expectedLockoutMinutesLeft, result.LockTimeRemainingMinutes);
+            }
+
+            public static IEnumerable<object[]> VerifyAccountLockoutTimeCalculation_Data
+            {
+                get
+                {
+                    return new[]
+                    {
+                        // No failed logins
+                        new object[] {0, null, DateTime.UtcNow, 0}, 
+                        // Small number of failed logins, no lock required
+                        new object[] {1, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 0, 1), 0},
+                        new object[] {5, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 0, 1), 0},
+                        new object[] {9, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 0, 1), 0},
+                        // Initial lockout period
+                        new object[] {10, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 0, 1), 1},
+                        new object[] {19, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 0, 59), 1},
+                        // Exponentially increasing lockout period
+                        new object[] {21, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 0, 1), 10},
+                        new object[] {25, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 9, 0), 1},
+                        new object[] {29, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 5, 30), 5},
+                        new object[] {30, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 0, 1), 100},
+                        // Lockout expired
+                        new object[] {10, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 0, 10, 0), 0},
+                        new object[] {20, new DateTime(2016, 9, 30, 0, 0, 0), new DateTime(2016, 9, 30, 1, 40, 0), 0}
+                    };
+                }
             }
         }
 
-        public class TheCreateSessionMethod : TestContainer
+        public class TheCreateSessionAsyncMethod : TestContainer
         {
             [Fact]
-            public void GivenAUser_ItCreatesAnOwinAuthenticationTicketForTheUser()
+            public async Task GivenAUser_ItCreatesAnOwinAuthenticationTicketForTheUser()
             {
                 // Arrange
                 var service = Get<AuthenticationService>();
+                var fakes = Get<Fakes>();
                 var context = Fakes.CreateOwinContext();
-                
-                var passwordCred = Fakes.Admin.Credentials.SingleOrDefault(
-                    c => String.Equals(c.Type, CredentialTypes.Password.Pbkdf2, StringComparison.OrdinalIgnoreCase));
 
-                var authUser = new AuthenticatedUser(Fakes.Admin, passwordCred);
+                var passwordCred = fakes.Admin.Credentials.SingleOrDefault(
+                    c => string.Equals(c.Type, CredentialTypes.Password.Pbkdf2, StringComparison.OrdinalIgnoreCase));
+
+                var authUser = new AuthenticatedUser(fakes.Admin, passwordCred);
 
                 // Act
-                service.CreateSession(context, authUser.User);
+                await service.CreateSessionAsync(context, authUser);
 
                 // Assert
                 var principal = context.Authentication.AuthenticationResponseGrant.Principal;
                 var id = principal.Identity;
                 Assert.NotNull(principal);
                 Assert.NotNull(id);
-                Assert.Equal(Fakes.Admin.Username, id.Name);
-                Assert.Equal(Fakes.Admin.Username, principal.GetClaimOrDefault(ClaimTypes.NameIdentifier));
+                Assert.Equal(fakes.Admin.Username, id.Name);
+                Assert.Equal(fakes.Admin.Username, principal.GetClaimOrDefault(ClaimTypes.NameIdentifier));
                 Assert.Equal(AuthenticationTypes.LocalUser, id.AuthenticationType);
                 Assert.True(principal.IsInRole(Constants.AdminRoleName));
+            }
+
+            [Fact]
+            public async Task WritesAnAuditRecord()
+            {
+                // Arrange
+                var service = Get<AuthenticationService>();
+                var fakes = Get<Fakes>();
+                var context = Fakes.CreateOwinContext();
+
+                var credential = fakes.Admin.Credentials.SingleOrDefault(
+                    c => string.Equals(c.Type, CredentialTypes.Password.Pbkdf2, StringComparison.OrdinalIgnoreCase));
+
+                var authenticatedUser = new AuthenticatedUser(fakes.Admin, credential);
+
+                // Act
+                await service.CreateSessionAsync(context, authenticatedUser);
+
+                // Assert
+                var authenticationService = Get<AuthenticationService>();
+                Assert.True(authenticationService.Auditing.WroteRecord<UserAuditRecord>(ar =>
+                    ar.Action == AuditedUserAction.Login &&
+                    ar.Username == fakes.Admin.Username));
             }
         }
 
@@ -252,22 +545,24 @@ namespace NuGetGallery.Authentication
             [Fact]
             public async Task GivenPlainTextPassword_ItSaltsHashesAndPassesThru()
             {
+                var fakes = Get<Fakes>();
+
                 // Just tests that the obsolete version passes through to the new version
                 string password = "thePassword";
                 var mock = GetMock<AuthenticationService>();
                 // Mock out the new version, we only care that it is called with expected params
                 mock.Setup(a => a.Register(
-                        Fakes.User.Username,
-                        Fakes.User.EmailAddress,
+                        fakes.User.Username,
+                        fakes.User.EmailAddress,
                         It.Is<Credential>(c => VerifyPasswordHash(
                             c.Value,
-                            Constants.PBKDF2HashAlgorithmId,
+                            CredentialBuilder.LatestPasswordType,
                             password))))
                     .CompletesWithNull()
                     .Verifiable();
 
                 // Act
-                await mock.Object.Register(Fakes.User.Username, password, Fakes.User.EmailAddress);
+                await mock.Object.Register(fakes.User.Username, fakes.User.EmailAddress, new CredentialBuilder().CreatePasswordCredential(password));
 
                 // Assert
                 mock.VerifyAll();
@@ -278,16 +573,17 @@ namespace NuGetGallery.Authentication
             {
                 // Arrange
                 var auth = Get<AuthenticationService>();
+                var fakes = Get<Fakes>();
 
                 // Act
                 var ex = await AssertEx.Throws<EntityException>(() =>
                     auth.Register(
-                        Fakes.User.Username,
+                        fakes.User.Username,
                         "theEmailAddress",
-                        CredentialBuilder.CreatePbkdf2Password("thePassword")));
+                        new CredentialBuilder().CreatePasswordCredential("thePassword")));
 
                 // Assert
-                Assert.Equal(String.Format(Strings.UsernameNotAvailable, Fakes.User.Username), ex.Message);
+                Assert.Equal(string.Format(Strings.UsernameNotAvailable, fakes.User.Username), ex.Message);
             }
 
             [Fact]
@@ -295,16 +591,17 @@ namespace NuGetGallery.Authentication
             {
                 // Arrange
                 var auth = Get<AuthenticationService>();
+                var fakes = Get<Fakes>();
 
                 // Act
                 var ex = await AssertEx.Throws<EntityException>(() =>
                     auth.Register(
                         "newUser",
-                        Fakes.User.EmailAddress,
-                        CredentialBuilder.CreatePbkdf2Password("thePassword")));
-                
+                        fakes.User.EmailAddress,
+                        new CredentialBuilder().CreatePasswordCredential("thePassword")));
+
                 // Assert
-                Assert.Equal(String.Format(Strings.EmailAddressBeingUsed, Fakes.User.EmailAddress), ex.Message);
+                Assert.Equal(string.Format(Strings.EmailAddressBeingUsed, fakes.User.EmailAddress), ex.Message);
             }
 
             [Fact]
@@ -317,7 +614,7 @@ namespace NuGetGallery.Authentication
                 var authUser = await auth.Register(
                     "newUser",
                     "theEmailAddress",
-                    CredentialBuilder.CreatePbkdf2Password("thePassword"));
+                    new CredentialBuilder().CreatePasswordCredential("thePassword"));
 
                 // Assert
                 Assert.True(auth.Entities.Users.Contains(authUser.User));
@@ -337,32 +634,12 @@ namespace NuGetGallery.Authentication
                 var authUser = await auth.Register(
                     "newUser",
                     "theEmailAddress",
-                    CredentialBuilder.CreatePbkdf2Password("thePassword"));
+                    new CredentialBuilder().CreatePasswordCredential("thePassword"));
 
                 // Assert
                 Assert.True(auth.Entities.Users.Contains(authUser.User));
                 Assert.True(authUser.User.Confirmed);
                 auth.Entities.VerifyCommitChanges();
-            }
-
-            [Fact]
-            public async Task SetsAnApiKey()
-            {
-                // Arrange
-                var auth = Get<AuthenticationService>();
-
-                // Arrange
-                var authUser = await auth.Register(
-                    "newUser",
-                    "theEmailAddress",
-                    CredentialBuilder.CreatePbkdf2Password("thePassword"));
-
-                // Assert
-                Assert.True(auth.Entities.Users.Contains(authUser.User));
-                auth.Entities.VerifyCommitChanges();
-
-                var apiKeyCred = authUser.User.Credentials.FirstOrDefault(c => c.Type == CredentialTypes.ApiKeyV1);
-                Assert.NotNull(apiKeyCred);
             }
 
             [Fact]
@@ -378,7 +655,7 @@ namespace NuGetGallery.Authentication
                 var authUser = await auth.Register(
                     "newUser",
                     "theEmailAddress",
-                    CredentialBuilder.CreatePbkdf2Password("thePassword"));
+                    new CredentialBuilder().CreatePasswordCredential("thePassword"));
 
                 // Assert
                 Assert.True(auth.Entities.Users.Contains(authUser.User));
@@ -398,7 +675,7 @@ namespace NuGetGallery.Authentication
                 var authUser = await auth.Register(
                     "newUser",
                     "theEmailAddress",
-                    CredentialBuilder.CreatePbkdf2Password("thePassword"));
+                    new CredentialBuilder().CreatePasswordCredential("thePassword"));
 
                 // Assert
                 Assert.True(auth.Entities.Users.Contains(authUser.User));
@@ -418,11 +695,11 @@ namespace NuGetGallery.Authentication
                 var authUser = await auth.Register(
                     "newUser",
                     "theEmailAddress",
-                    CredentialBuilder.CreatePbkdf2Password("thePassword"));
+                    new CredentialBuilder().CreatePasswordCredential("thePassword"));
 
                 // Assert
-                Assert.True(auth.Auditing.WroteRecord<UserAuditRecord>(ar => 
-                    ar.Action == UserAuditAction.Registered &&
+                Assert.True(auth.Auditing.WroteRecord<UserAuditRecord>(ar =>
+                    ar.Action == AuditedUserAction.Register &&
                     ar.Username == "newUser"));
             }
         }
@@ -434,7 +711,7 @@ namespace NuGetGallery.Authentication
             {
                 // Arrange
                 var service = Get<AuthenticationService>();
-                
+
                 // Act
                 var ex = await AssertEx.Throws<InvalidOperationException>(() =>
                     service.ReplaceCredential("definitelyNotARealUser", new Credential()));
@@ -447,9 +724,10 @@ namespace NuGetGallery.Authentication
             public async Task AddsNewCredentialIfNoneWithSameTypeForUser()
             {
                 // Arrange
+                var fakes = Get<Fakes>();
                 var existingCred = new Credential("foo", "bar");
                 var newCred = new Credential("baz", "boz");
-                var user = Fakes.CreateUser("foo", existingCred);
+                var user = fakes.CreateUser("foo", existingCred);
                 var service = Get<AuthenticationService>();
                 service.Entities.Users.Add(user);
 
@@ -465,10 +743,11 @@ namespace NuGetGallery.Authentication
             public async Task ReplacesExistingCredentialIfOneWithSameTypeExistsForUser()
             {
                 // Arrange
+                var fakes = Get<Fakes>();
                 var frozenCred = new Credential("foo", "bar");
                 var existingCred = new Credential("baz", "bar");
                 var newCred = new Credential("baz", "boz");
-                var user = Fakes.CreateUser("foo", existingCred, frozenCred);
+                var user = fakes.CreateUser("foo", existingCred, frozenCred);
                 var service = Get<AuthenticationService>();
                 service.Entities.Users.Add(user);
 
@@ -485,9 +764,10 @@ namespace NuGetGallery.Authentication
             public async Task WritesAuditRecordRemovingTheOldCredential()
             {
                 // Arrange
+                var fakes = Get<Fakes>();
                 var existingCred = new Credential("baz", "bar");
                 var newCred = new Credential("baz", "boz");
-                var user = Fakes.CreateUser("foo", existingCred);
+                var user = fakes.CreateUser("foo", existingCred);
                 var service = Get<AuthenticationService>();
                 service.Entities.Users.Add(user);
 
@@ -496,21 +776,24 @@ namespace NuGetGallery.Authentication
 
                 // Assert
                 Assert.True(service.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.RemovedCredential &&
+                    ar.Action == AuditedUserAction.RemoveCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
                     ar.AffectedCredential[0].Type == existingCred.Type &&
                     ar.AffectedCredential[0].Identity == existingCred.Identity &&
-                    ar.AffectedCredential[0].Value == existingCred.Value));
+                    ar.AffectedCredential[0].Value == existingCred.Value &&
+                    ar.AffectedCredential[0].Created == existingCred.Created &&
+                    ar.AffectedCredential[0].Expires == existingCred.Expires));
             }
 
             [Fact]
             public async Task WritesAuditRecordAddingTheNewCredential()
             {
                 // Arrange
+                var fakes = Get<Fakes>();
                 var existingCred = new Credential("foo", "bar");
                 var newCred = new Credential("baz", "boz");
-                var user = Fakes.CreateUser("foo", existingCred);
+                var user = fakes.CreateUser("foo", existingCred);
                 var service = Get<AuthenticationService>();
                 service.Entities.Users.Add(user);
 
@@ -519,12 +802,14 @@ namespace NuGetGallery.Authentication
 
                 // Assert
                 Assert.True(service.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.AddedCredential &&
+                    ar.Action == AuditedUserAction.AddCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
                     ar.AffectedCredential[0].Type == newCred.Type &&
                     ar.AffectedCredential[0].Identity == newCred.Identity &&
-                    ar.AffectedCredential[0].Value == null));
+                    ar.AffectedCredential[0].Value == null &&
+                    ar.AffectedCredential[0].Created == existingCred.Created &&
+                    ar.AffectedCredential[0].Expires == existingCred.Expires));
             }
         }
 
@@ -535,7 +820,7 @@ namespace NuGetGallery.Authentication
             {
                 // Arrange
                 var authService = Get<AuthenticationService>();
-                
+
                 // Act
                 var result = await authService.ResetPasswordWithToken("definitelyAFakeUser", "some-token", "new-password");
 
@@ -564,14 +849,14 @@ namespace NuGetGallery.Authentication
             public async Task ResetsPasswordCredential()
             {
                 // Arrange
-                var oldCred = CredentialBuilder.CreatePbkdf2Password("thePassword");
+                var oldCred = new CredentialBuilder().CreatePasswordCredential("thePassword");
                 var user = new User
                 {
                     Username = "user",
                     EmailAddress = "confirmed@example.com",
                     PasswordResetToken = "some-token",
                     PasswordResetTokenExpirationDate = DateTime.UtcNow.AddDays(1),
-                    Credentials = new List<Credential>() { oldCred }
+                    Credentials = new List<Credential> { oldCred }
                 };
 
                 var authService = Get<AuthenticationService>();
@@ -584,22 +869,37 @@ namespace NuGetGallery.Authentication
                 Assert.NotNull(result);
                 var newCred = user.Credentials.Single();
                 Assert.Same(result, newCred);
-                Assert.Equal(CredentialTypes.Password.Pbkdf2, newCred.Type);
-                Assert.True(VerifyPasswordHash(newCred.Value, Constants.PBKDF2HashAlgorithmId, "new-password"));
+                Assert.Equal(CredentialBuilder.LatestPasswordType, newCred.Type);
+                Assert.True(VerifyPasswordHash(newCred.Value, CredentialBuilder.LatestPasswordType, "new-password"));
                 authService.Entities.VerifyCommitChanges();
+                Assert.Equal(0, user.FailedLoginCount);
+                Assert.Null(user.LastFailedLoginUtc);
             }
 
-            [Fact]
-            public async Task ResetsPasswordMigratesPasswordHash()
+
+            public static IEnumerable<object[]> ResetsPasswordMigratesPasswordHash_Input
             {
-                var oldCred = CredentialBuilder.CreateSha1Password("thePassword");
+                get
+                {
+                    return new[]
+                    {
+                        new object[] {new Func<string, Credential>(TestCredentialHelper.CreateSha1Password)},
+                        new object[] {new Func<string, Credential>(TestCredentialHelper.CreatePbkdf2Password)}
+                    };
+                }
+            }
+
+            [Theory, MemberData("ResetsPasswordMigratesPasswordHash_Input")]
+            public async Task ResetsPasswordMigratesPasswordHash(Func<string, Credential> oldCredentialBuilder)
+            {
+                var oldCred = oldCredentialBuilder("thePassword");
                 var user = new User
                 {
                     Username = "user",
                     EmailAddress = "confirmed@example.com",
                     PasswordResetToken = "some-token",
                     PasswordResetTokenExpirationDate = DateTime.UtcNow.AddDays(1),
-                    Credentials = new List<Credential>() { oldCred }
+                    Credentials = new List<Credential> { oldCred }
                 };
 
                 var authService = Get<AuthenticationService>();
@@ -611,8 +911,8 @@ namespace NuGetGallery.Authentication
                 Assert.NotNull(result);
                 var newCred = user.Credentials.Single();
                 Assert.Same(result, newCred);
-                Assert.Equal(CredentialTypes.Password.Pbkdf2, newCred.Type);
-                Assert.True(VerifyPasswordHash(newCred.Value, Constants.PBKDF2HashAlgorithmId, "new-password"));
+                Assert.Equal(CredentialBuilder.LatestPasswordType, newCred.Type);
+                Assert.True(VerifyPasswordHash(newCred.Value, CredentialBuilder.LatestPasswordType, "new-password"));
                 authService.Entities.VerifyCommitChanges();
             }
 
@@ -620,14 +920,14 @@ namespace NuGetGallery.Authentication
             public async Task WritesAuditRecordWhenReplacingPasswordCredential()
             {
                 // Arrange
-                var oldCred = CredentialBuilder.CreatePbkdf2Password("thePassword");
+                var oldCred = TestCredentialHelper.CreatePbkdf2Password("thePassword");
                 var user = new User
                 {
                     Username = "user",
                     EmailAddress = "confirmed@example.com",
                     PasswordResetToken = "some-token",
                     PasswordResetTokenExpirationDate = DateTime.UtcNow.AddDays(1),
-                    Credentials = new List<Credential>() { oldCred }
+                    Credentials = new List<Credential> { oldCred }
                 };
 
                 var authService = Get<AuthenticationService>();
@@ -638,17 +938,17 @@ namespace NuGetGallery.Authentication
 
                 // Assert
                 Assert.True(authService.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.RemovedCredential &&
+                    ar.Action == AuditedUserAction.RemoveCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
                     ar.AffectedCredential[0].Type == CredentialTypes.Password.Pbkdf2 &&
                     ar.AffectedCredential[0].Identity == null &&
                     ar.AffectedCredential[0].Value == null));
                 Assert.True(authService.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.AddedCredential &&
+                    ar.Action == AuditedUserAction.AddCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
-                    ar.AffectedCredential[0].Type == CredentialTypes.Password.Pbkdf2 &&
+                    ar.AffectedCredential[0].Type == CredentialBuilder.LatestPasswordType &&
                     ar.AffectedCredential[0].Identity == null &&
                     ar.AffectedCredential[0].Value == null));
             }
@@ -771,7 +1071,7 @@ namespace NuGetGallery.Authentication
 
                 // Assert
                 Assert.True(authService.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.RequestedPasswordReset &&
+                    ar.Action == AuditedUserAction.RequestPasswordReset &&
                     ar.Username == user.Username));
             }
         }
@@ -782,9 +1082,10 @@ namespace NuGetGallery.Authentication
             public async Task GivenInvalidOldPassword_ItReturnsFalseAndDoesNotChangePassword()
             {
                 // Arrange
-                var user = Fakes.CreateUser("test", CredentialBuilder.CreatePbkdf2Password(Fakes.Password));
+                var fakes = Get<Fakes>();
+                var user = fakes.CreateUser("test", new CredentialBuilder().CreatePasswordCredential(Fakes.Password));
                 var authService = Get<AuthenticationService>();
-                
+
                 // Act
                 bool result = await authService.ChangePassword(user, "not-the-right-password!", "new-password!");
 
@@ -796,7 +1097,8 @@ namespace NuGetGallery.Authentication
             public async Task GivenValidOldPassword_ItReturnsTrueAndReplacesPasswordCredential()
             {
                 // Arrange
-                var user = Fakes.CreateUser("test", CredentialBuilder.CreatePbkdf2Password(Fakes.Password));
+                var fakes = Get<Fakes>();
+                var user = fakes.CreateUser("test", new CredentialBuilder().CreatePasswordCredential(Fakes.Password));
                 var authService = Get<AuthenticationService>();
 
                 // Act
@@ -804,16 +1106,17 @@ namespace NuGetGallery.Authentication
 
                 // Assert
                 Assert.True(result);
-                
-                Credential _;
-                Assert.True(AuthenticationService.ValidatePasswordCredential(user.Credentials, "new-password!", out _));
+
+                var credentialValidator = new CredentialValidator();
+                Assert.True(credentialValidator.ValidatePasswordCredential(user.Credentials.First(), "new-password!"));
             }
 
             [Fact]
             public async Task GivenValidOldPassword_ItWritesAnAuditRecordOfTheChange()
             {
                 // Arrange
-                var user = Fakes.CreateUser("test", CredentialBuilder.CreatePbkdf2Password(Fakes.Password));
+                var fakes = Get<Fakes>();
+                var user = fakes.CreateUser("test", new CredentialBuilder().CreatePasswordCredential(Fakes.Password));
                 var authService = Get<AuthenticationService>();
 
                 // Act
@@ -821,15 +1124,15 @@ namespace NuGetGallery.Authentication
 
                 // Assert
                 Assert.True(authService.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.RemovedCredential &&
+                    ar.Action == AuditedUserAction.RemoveCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
-                    ar.AffectedCredential[0].Type == CredentialTypes.Password.Pbkdf2));
+                    ar.AffectedCredential[0].Type == CredentialBuilder.LatestPasswordType));
                 Assert.True(authService.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.AddedCredential &&
+                    ar.Action == AuditedUserAction.AddCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
-                    ar.AffectedCredential[0].Type == CredentialTypes.Password.Pbkdf2));
+                    ar.AffectedCredential[0].Type == CredentialBuilder.LatestPasswordType));
             }
         }
 
@@ -884,8 +1187,11 @@ namespace NuGetGallery.Authentication
             public async Task AddsTheCredentialToTheDataStore()
             {
                 // Arrange
-                var user = Fakes.CreateUser("test", CredentialBuilder.CreatePbkdf2Password(Fakes.Password));
-                var cred = CredentialBuilder.CreateExternalCredential("flarg", "glarb", "blarb");
+                var credentialBuilder = new CredentialBuilder();
+
+                var fakes = Get<Fakes>();
+                var user = fakes.CreateUser("test", credentialBuilder.CreatePasswordCredential(Fakes.Password));
+                var cred = credentialBuilder.CreateExternalCredential("flarg", "glarb", "blarb");
                 var authService = Get<AuthenticationService>();
 
                 // Act
@@ -900,16 +1206,19 @@ namespace NuGetGallery.Authentication
             public async Task WritesAuditRecordForTheNewCredential()
             {
                 // Arrange
-                var user = Fakes.CreateUser("test", CredentialBuilder.CreatePbkdf2Password(Fakes.Password));
-                var cred = CredentialBuilder.CreateExternalCredential("flarg", "glarb", "blarb");
+                var credentialBuilder = new CredentialBuilder();
+
+                var fakes = Get<Fakes>();
+                var user = fakes.CreateUser("test", credentialBuilder.CreatePasswordCredential(Fakes.Password));
+                var cred = credentialBuilder.CreateExternalCredential("flarg", "glarb", "blarb");
                 var authService = Get<AuthenticationService>();
 
                 // Act
                 await authService.AddCredential(user, cred);
 
                 // Assert
-                Assert.True(authService.Auditing.WroteRecord<UserAuditRecord>(ar => 
-                    ar.Action == UserAuditAction.AddedCredential &&
+                Assert.True(authService.Auditing.WroteRecord<UserAuditRecord>(ar =>
+                    ar.Action == AuditedUserAction.AddCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
                     ar.AffectedCredential[0].Type == cred.Type &&
@@ -923,7 +1232,7 @@ namespace NuGetGallery.Authentication
             public void GivenAPasswordCredential_ItDescribesItCorrectly()
             {
                 // Arrange
-                var cred = CredentialBuilder.CreatePbkdf2Password("wibblejab");
+                var cred = new CredentialBuilder().CreatePasswordCredential("wibblejab");
                 var authService = Get<AuthenticationService>();
 
                 // Act
@@ -933,16 +1242,28 @@ namespace NuGetGallery.Authentication
                 Assert.Equal(cred.Type, description.Type);
                 Assert.Equal(Strings.CredentialType_Password, description.TypeCaption);
                 Assert.Null(description.Identity);
-                Assert.True(String.IsNullOrEmpty(description.Value));
                 Assert.Equal(CredentialKind.Password, description.Kind);
                 Assert.Null(description.AuthUI);
             }
 
-            [Fact]
-            public void GivenATokenCredential_ItDescribesItCorrectly()
+            [InlineData(false, false, true)]
+            [InlineData(false, true, false)]
+            [InlineData(true, true, true)]
+            [Theory]
+            public void GivenATokenCredential_LegacyApiKey_ItDescribesItCorrectly(bool hasExpired, bool hasBeenUsedInLastDays, bool expectedHasExpired)
             {
                 // Arrange
-                var cred = CredentialBuilder.CreateV1ApiKey(Guid.NewGuid());
+                const int expirationForApiKeyV1 = 365;
+
+                var mockConfig = GetMock<IAppConfiguration>();
+                mockConfig.SetupGet(x => x.ExpirationInDaysForApiKeyV1).Returns(expirationForApiKeyV1);
+
+                var cred = TestCredentialHelper.CreateV1ApiKey(Guid.NewGuid(), Fakes.ExpirationForApiKeyV1);
+                cred.LastUsed = hasBeenUsedInLastDays
+                    ? DateTime.UtcNow
+                    : DateTime.UtcNow - TimeSpan.FromDays(expirationForApiKeyV1 + 1);
+                cred.Expires = hasExpired ? DateTime.UtcNow - TimeSpan.FromDays(1) : DateTime.UtcNow + TimeSpan.FromDays(1);
+
                 var authService = Get<AuthenticationService>();
 
                 // Act
@@ -952,16 +1273,61 @@ namespace NuGetGallery.Authentication
                 Assert.Equal(cred.Type, description.Type);
                 Assert.Equal(Strings.CredentialType_ApiKey, description.TypeCaption);
                 Assert.Null(description.Identity);
-                Assert.Equal(cred.Value, description.Value);
+                Assert.Equal(cred.Created, description.Created);
+                Assert.Equal(cred.Expires, description.Expires);
                 Assert.Equal(CredentialKind.Token, description.Kind);
                 Assert.Null(description.AuthUI);
+                Assert.Equal(cred.Value, description.Value);
+                Assert.Equal(Strings.NonScopedApiKeyDescription, description.Description);
+                Assert.Equal(expectedHasExpired, description.HasExpired);
             }
 
-            [Fact]
-            public void GivenAnExternalCredential_ItDescribesItCorrectly()
+            [InlineData(false)]
+            [InlineData(true)]
+            [Theory]
+            public void GivenATokenCredential_ScopedApiKey_ItDescribesItCorrectly(bool hasExpired)
             {
                 // Arrange
-                var cred = CredentialBuilder.CreateExternalCredential("MicrosoftAccount", "abc123", "Test User");
+                var cred = new CredentialBuilder().CreateApiKey(Fakes.ExpirationForApiKeyV1);
+                cred.Description = "description";
+                cred.Scopes = new[] { new Scope("123", NuGetScopes.PackagePushVersion), new Scope("123", NuGetScopes.PackageUnlist) };
+                cred.Expires = hasExpired ? DateTime.UtcNow - TimeSpan.FromDays(1) : DateTime.UtcNow + TimeSpan.FromDays(1);
+                cred.ExpirationTicks = TimeSpan.TicksPerDay;
+
+                var authService = Get<AuthenticationService>();
+
+                // Act
+                var description = authService.DescribeCredential(cred);
+
+                // Assert
+                Assert.Equal(cred.Type, description.Type);
+                Assert.Equal(Strings.CredentialType_ApiKey, description.TypeCaption);
+                Assert.Null(description.Identity);
+                Assert.Equal(cred.Created, description.Created);
+                Assert.Equal(cred.Expires, description.Expires);
+                Assert.Equal(cred.HasExpired, description.HasExpired);
+                Assert.Equal(CredentialKind.Token, description.Kind);
+                Assert.Null(description.AuthUI);
+                Assert.Equal(cred.Description, description.Description);
+                Assert.Equal(hasExpired, description.HasExpired);
+
+                Assert.True(description.Scopes.Count == 2);
+                Assert.Equal(NuGetScopes.Describe(NuGetScopes.PackagePushVersion), description.Scopes[0].AllowedAction);
+                Assert.Equal("123", description.Scopes[0].Subject);
+                Assert.Equal(NuGetScopes.Describe(NuGetScopes.PackageUnlist), description.Scopes[1].AllowedAction);
+                Assert.Equal("123", description.Scopes[1].Subject);
+                Assert.Equal(cred.ExpirationTicks.Value, description.ExpirationDuration.Value.Ticks);
+            }
+
+            [InlineData(false)]
+            [InlineData(true)]
+            [Theory]
+            public void GivenAnExternalCredential_ItDescribesItCorrectly(bool hasExpired)
+            {
+                // Arrange
+                var cred = new CredentialBuilder().CreateExternalCredential("MicrosoftAccount", "abc123", "Test User");
+                cred.Expires = hasExpired ? DateTime.UtcNow - TimeSpan.FromDays(1) : DateTime.UtcNow + TimeSpan.FromDays(1);
+                 
                 var msftAuther = new MicrosoftAccountAuthenticator();
                 var authService = Get<AuthenticationService>();
 
@@ -972,10 +1338,10 @@ namespace NuGetGallery.Authentication
                 Assert.Equal(cred.Type, description.Type);
                 Assert.Equal(msftAuther.GetUI().Caption, description.TypeCaption);
                 Assert.Equal(cred.Identity, description.Identity);
-                Assert.True(String.IsNullOrEmpty(description.Value));
                 Assert.Equal(CredentialKind.External, description.Kind);
                 Assert.NotNull(description.AuthUI);
                 Assert.Equal(msftAuther.GetUI().AccountNoun, description.AuthUI.AccountNoun);
+                Assert.Equal(hasExpired, description.HasExpired);
             }
         }
 
@@ -985,8 +1351,11 @@ namespace NuGetGallery.Authentication
             public async Task RemovesTheCredentialFromTheDataStore()
             {
                 // Arrange
-                var cred = CredentialBuilder.CreateExternalCredential("flarg", "glarb", "blarb");
-                var user = Fakes.CreateUser("test", CredentialBuilder.CreatePbkdf2Password(Fakes.Password), cred);
+                var credentialBuilder = new CredentialBuilder();
+
+                var fakes = Get<Fakes>();
+                var cred = credentialBuilder.CreateExternalCredential("flarg", "glarb", "blarb");
+                var user = fakes.CreateUser("test", credentialBuilder.CreatePasswordCredential(Fakes.Password), cred);
                 var authService = Get<AuthenticationService>();
 
                 // Act
@@ -1002,8 +1371,11 @@ namespace NuGetGallery.Authentication
             public async Task WritesAuditRecordForTheRemovedCredential()
             {
                 // Arrange
-                var cred = CredentialBuilder.CreateExternalCredential("flarg", "glarb", "blarb");
-                var user = Fakes.CreateUser("test", CredentialBuilder.CreatePbkdf2Password(Fakes.Password), cred);
+                var credentialBuilder = new CredentialBuilder();
+
+                var fakes = Get<Fakes>();
+                var cred = credentialBuilder.CreateExternalCredential("flarg", "glarb", "blarb");
+                var user = fakes.CreateUser("test", credentialBuilder.CreatePasswordCredential(Fakes.Password), cred);
                 var authService = Get<AuthenticationService>();
 
                 // Act
@@ -1011,12 +1383,86 @@ namespace NuGetGallery.Authentication
 
                 // Assert
                 Assert.True(authService.Auditing.WroteRecord<UserAuditRecord>(ar =>
-                    ar.Action == UserAuditAction.RemovedCredential &&
+                    ar.Action == AuditedUserAction.RemoveCredential &&
                     ar.Username == user.Username &&
                     ar.AffectedCredential.Length == 1 &&
                     ar.AffectedCredential[0].Type == cred.Type &&
                     ar.AffectedCredential[0].Identity == cred.Identity &&
                     ar.AffectedCredential[0].Value == cred.Value));
+            }
+        }
+
+        public class TheEditCredentialMethod : TestContainer
+        {
+            [Fact]
+            public async Task SavesChangesInTheDataStore()
+            {
+                // Arrange
+                var credentialBuilder = new CredentialBuilder();
+
+                var fakes = Get<Fakes>();
+                var entities = Get<IEntitiesContext>();
+
+                var cred = credentialBuilder.CreateApiKey(null);
+                var user = fakes.CreateUser("test", credentialBuilder.CreatePasswordCredential(Fakes.Password), cred);
+                var authService = Get<AuthenticationService>();
+
+                var credscopes =
+                    Enumerable.Range(0, 5)
+                        .Select(
+                            i => new Scope { AllowedAction = NuGetScopes.PackagePush, Key = i, Subject = "package" + i }).ToList();
+
+                var newScopes =
+                    Enumerable.Range(1, 2)
+                        .Select(
+                            i => new Scope { AllowedAction = NuGetScopes.PackageUnlist, Key = i*10, Subject = "otherpackage" + i }).ToList();
+
+                cred.Scopes = credscopes;
+
+                foreach (var scope in credscopes)
+                {
+                    entities.Scopes.Add(scope);
+                }
+
+                // Add an unrelated scope to make sure it's not removed
+                entities.Scopes.Add(new Scope { AllowedAction = NuGetScopes.PackagePush, Key = 999, Subject = "package999" });
+
+                // Act
+                await authService.EditCredentialScopes(user, cred, newScopes);
+
+                // Assert
+                Assert.Equal(1, authService.Entities.Scopes.Count());
+                Assert.True(authService.Entities.Scopes.First().Key == 999);
+
+                Assert.Equal(newScopes.Count, cred.Scopes.Count);
+                foreach (var newScope in newScopes)
+                {
+                    Assert.NotNull(cred.Scopes.FirstOrDefault(x => x.Key == newScope.Key));
+                }
+
+                authService.Entities.VerifyCommitChanges();
+            }
+
+            [Fact]
+            public async Task WritesAuditRecordForTheEditedCredential()
+            {
+                // Arrange
+                var credentialBuilder = new CredentialBuilder();
+
+                var fakes = Get<Fakes>();
+                var cred = credentialBuilder.CreateApiKey(null);
+                var user = fakes.CreateUser("test", credentialBuilder.CreatePasswordCredential(Fakes.Password), cred);
+                var authService = Get<AuthenticationService>();
+
+                // Act
+                await authService.EditCredentialScopes(user, cred, new List<Scope>());
+
+                // Assert
+                Assert.True(authService.Auditing.WroteRecord<UserAuditRecord>(ar =>
+                    ar.Action == AuditedUserAction.EditCredential &&
+                    ar.Username == user.Username &&
+                    ar.AffectedCredential.Length == 1 &&
+                    ar.AffectedCredential[0].Type == cred.Type));
             }
         }
 
@@ -1030,7 +1476,7 @@ namespace NuGetGallery.Authentication
                 var authService = Get<AuthenticationService>();
                 var context = Fakes.CreateOwinContext();
                 authThunk.Attach(context);
-                
+
                 // Act
                 var result = await authService.ReadExternalLoginCredential(context);
 
@@ -1185,15 +1631,10 @@ namespace NuGetGallery.Authentication
 
         public static bool VerifyPasswordHash(string hash, string algorithm, string password)
         {
-            bool canAuthenticate = CryptographyService.ValidateSaltedHash(
-                hash,
-                password,
-                algorithm);
+            var validator = CredentialValidator.Validators[algorithm];
+            bool canAuthenticate = validator(password, new Credential { Value = hash });
 
-            bool sanity = CryptographyService.ValidateSaltedHash(
-                hash,
-                "not_the_password",
-                algorithm);
+            bool sanity = validator("not_the_password", new Credential { Value = hash });
 
             return canAuthenticate && !sanity;
         }

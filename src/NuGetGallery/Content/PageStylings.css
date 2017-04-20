@@ -43,44 +43,145 @@
 
 /* Account/API Key */
 
-#apiKey h1 {
-    font-size: 2em;
+#apiKeyExpired {
+    color: red;
+    font-weight: 600;
 }
 
-#apiKey pre {
+.apiKey {
     background-color: #202020;
     border: 2px solid #c0c0c0;
     color: #c0c0c0;
-    display: block;
+    display: inline-block;
     font: 1.2em 'andale mono', 'lucida console', monospace;
     line-height: 1.5em;
-    margin: 15px 0 0;
     overflow: auto;
     padding: 15px;
 }
 
-#generateKey {
-    position: relative;
+.packagecheckbox {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-    #generateKey h2 {
-        font-size: 1.7em;
+/* Api keys container */
+#apikeyscontainer {
+    background-color: white;
+    padding-top: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-bottom: 10px;
+}
+
+    #apikeyscontainer hr {
+        margin-bottom: 0px;
     }
 
-    #generateKey #key {
-        font-size: 1.7em;
-        margin-bottom: 0;
-    }
+/* new api key form*/
+#newapikey-1-content {
+    padding: 5px;
+}
 
-    #generateKey .form input[type="submit"] {
-        width: auto;
-    }
+#addapikeypopup {
+    margin-left: -220px;
+}
+
+#addapikeypopup, .editapikeypopup {
+    width: 360px;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+
+#addkeyselectpackages, #addkeypackageGlobPattern {
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+
+#addkeyselectscopes {
+    margin-top: 5px;
+    margin-bottom: 25px;
+}
+
+.nopackageslist {
+    padding-left: 10px;
+    padding-top: 5px;
+    display: block;
+}
+
+/* Edit api key */
+.editapikeypopup {
+    margin-left: -275px;
+}
+
+.popup .editapikeypopup::after {
+    left: 150px;
+}
+
+.popup .editapikeypopup::before {
+    left: 149px;
+}
+
+.details-table tr.editpackagetr + td {
+    border-top: none;
+    padding-left: 10px;
+}
+
+.details-table tr.editpackagetr td {
+    border-top: none;
+}
+
+.editpackagetd table td {
+    padding-left: 0px;
+    padding-top: 0px;
+}
+
+#editkeypackageGlobPattern {
+    margin-top: 5px;
+    margin-bottom: 8px;
+}
+
+
+
+#newapikey-1-actions {
+    margin-top: 0px;
+}
+
+#selectablePackagesList {
+    max-height: 300px;
+    min-height: 100px;
+    width: 500px
+}
+
+.scrollable-div.editpackagelist {
+    max-height: 300px;
+    min-height: 100px;
+    width: 450px;
+}
+
+/* Details table */
+.details-table .shortlist {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    display: inline-block;
+    vertical-align: bottom;
+    max-width: 570px;
+}
+
+.details-table .packageslist+b {
+    display: inline-block;
+}
+
+.details-table .shortlist+a {
+  display: inline-block;
+}
+
 
 /* Package Page (Display Package) */
 
 .package-page h3 {
     font-size: 1.75em;
-    margin: 20px 0 6px -6px;
+    margin: 20px 0 6px 0px;
     margin-bottom: 6px;
     margin-top: 25px;
 }
@@ -93,20 +194,21 @@
     padding-bottom: 10px;
 }
 
-    .package-page-heading h1,
-    .package-page-heading h2 {
-        margin: 0;
-        padding: 0;
-        display: inline;
-    }
+.package-page-heading h1,
+.package-page-heading h2 {
+    margin: 0;
+    padding: 0;
+    display: inline;
+}
 
-    .package-page-heading h2 {
-        padding-left: 7px;
-    }
+.package-page-heading h2 {
+    padding-left: 7px;
+}
 
 /* NuGet Badge (Display Package) */
 
-.nuget-badge code {
+.nuget-badge code,
+.chocolatey-badge code {
     -moz-border-radius: 5px;
     -webkit-border-radius: 5px;
     background-color: #202020;
@@ -123,6 +225,9 @@
 
     .nuget-badge code::before {
         content: "PM> ";
+    }
+    .chocolatey-badge code::before {
+        content: "C:\\> ";
     }
 
 /* Messages on package page (Display Package) */
@@ -162,11 +267,11 @@
     padding: 0;
 }
 
-    #dependencySets > li > h4 {
-        border-bottom: solid 1px #333;
-        display: inline;
-        margin: 2px 0;
-    }
+#dependencySets > li > h4 {
+    border-bottom: solid 1px #333;
+    display: inline;
+    margin: 2px 0;
+}
 
 ul.dependencySet {
     list-style: none;
@@ -401,12 +506,12 @@ form .async-upload-progress-advance {
     margin-bottom: 20px;
 }
 
-#report-abuse-message {
+#report-abuse-message, #contact-support-message {
     top: 4.6em;
 }
 
 /* Account Page */
-#account-accordian {
+#account-accordion {
     clear: both;
 }
 

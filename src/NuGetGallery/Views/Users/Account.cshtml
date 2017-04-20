@@ -1,88 +1,8 @@
 ﻿@model AccountViewModel
 
-@helper AccordianBar(
-    string groupName,
-    string title,
-    string subtitle = null,
-    bool enabled = true,
-    string formModelStatePrefix = null,
-    Func<AccordianHelper, HelperResult> actions = null,
-    Func<AccordianHelper, HelperResult> content = null
-)
-{
-    Func<AccordianHelper, HelperResult> titleTemplate = null;
-    if (!String.IsNullOrEmpty(title))
-    {
-        titleTemplate = new Func<AccordianHelper, HelperResult>(@<text>@title</text>);
-    }
-
-    Func<AccordianHelper, HelperResult> subtitleTemplate = null;
-    if (!String.IsNullOrEmpty(subtitle))
-    {
-        subtitleTemplate = new Func<AccordianHelper, HelperResult>(@<text>@subtitle</text>);
-    }
-
-    @AccordianBar(groupName,
-        titleTemplate,
-        subtitleTemplate,
-        enabled,
-        formModelStatePrefix,
-        actions,
-        content)
-}
-
-@helper AccordianBar(
-    string groupName,
-    Func<AccordianHelper, HelperResult> title,
-    Func<AccordianHelper, HelperResult> subtitle = null,
-    bool enabled = true,
-    string formModelStatePrefix = null,
-    Func<AccordianHelper, HelperResult> actions = null,
-    Func<AccordianHelper, HelperResult> content = null
-)
-{
-    @* Calculate Accordian Index *@
-    string dataKey = "___AccordianCounter_" + groupName;
-    int lastId = (int)(HttpContext.Current.Items[dataKey] ?? 0);
-    int id = lastId + 1;
-    HttpContext.Current.Items[dataKey] = id;
-    string name = groupName + "-" + id.ToString();
-
-    var hlp = new AccordianHelper(name, formModelStatePrefix, this);
-    <li id="@hlp.ItemId" class="accordian-item @(enabled ? "accordian-item-enabled" : "accordian-item-disabled")">
-        @if (actions != null)
-        {
-            <div class="accordian-item-actions">
-                @actions(hlp)
-            </div>
-        }
-        <span class="accordian-item-title">
-            @title(hlp)
-        </span>
-        @if (subtitle != null)
-        {
-            <span class="accordian-item-subtitle">
-                @subtitle(hlp)
-            </span>
-        }
-        @if (content != null)
-        {
-            <div id="@hlp.ContentDropDownId" class="accordian-item-content @hlp.ContentHiddenClass">
-                @content(hlp)
-            </div>
-        }
-    </li>
-}
-
 @{
     ViewBag.Title = "Edit Profile";
     var credGroups = Model.Credentials.GroupBy(c => c.Kind).ToDictionary(g => g.Key, g => g.ToList());
-
-    CredentialViewModel apiKey = null;
-    if (credGroups.ContainsKey(CredentialKind.Token))
-    {
-        apiKey = credGroups[CredentialKind.Token].Single();
-    }
 
     var hasPassword = credGroups.ContainsKey(CredentialKind.Password);
 
@@ -97,12 +17,12 @@
 
 <h1 class="page-heading">My NuGet.org Account</h1>
 
-@if (!String.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress) && !String.IsNullOrEmpty(CurrentUser.EmailAddress))
+@if (!string.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress) && !string.IsNullOrEmpty(CurrentUser.EmailAddress))
 {
     <p class="message">
         You recently registered a new email address: <strong>@CurrentUser.UnconfirmedEmailAddress</strong><br />
 
-        @if (!String.IsNullOrEmpty(CurrentUser.EmailAddress))
+        @if (!string.IsNullOrEmpty(CurrentUser.EmailAddress))
         {
             <text>We will continue sending notification emails to your old verified email address (@CurrentUser.EmailAddress)
             until you <a href="@Url.ConfirmationRequired()">verify your new email address.</a></text>
@@ -115,6 +35,10 @@
         }
     </p>
 }
+
+<text>
+    <a href="https://www.research.net/r/DRPXR92?nugetgallery_user=[@CurrentUser.Username]">What do you think about NuGet.org?</a><br /><br />
+</text>
 
 @if (!CurrentUser.Confirmed)
 {
@@ -153,120 +77,134 @@
     </ul>
 </section>
 
-<ul id="account-accordian" class="accordian">
+<ul id="account-accordion" class="accordion">
     @**************************
             Email Address
     **************************@
-    @AccordianBar(
+    @ViewHelpers.AccordionBar(
         groupName: "editprofile",
-        title: (String.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress) ? "Email Address" : "Pending Email Address"),
+        page: this,
+        title: (string.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress) ? "Email Address" : "Pending Email Address"),
         subtitle: currentEmailAddress,
-        enabled: String.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress),
-        formModelStatePrefix: "ChangeEmail", 
+        enabled: string.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress),
+        formModelStatePrefix: "ChangeEmail",
         actions: @<text>@item.ExpandButton("Change", "Cancel")
-                  @if (!String.IsNullOrEmpty(CurrentUser.EmailAddress) && !String.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress))
-                  {
-                      using (Html.BeginForm("CancelChangeEmail", "Users", FormMethod.Post, new { @class = "form-inline" }))
-                      {
-                        <fieldset class="form">
-                            <legend>Reset to Confirmed Email Address</legend>
-                            @Html.AntiForgeryToken()
-                            <button class="btn btn-inline" type="submit">Reset to Confirmed Email Address</button>
-                        </fieldset>
-                      }
-                  }
-                </text>,
+                     @if (!String.IsNullOrEmpty(CurrentUser.EmailAddress) && !String.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress))
+                     {
+                         using (Html.BeginForm("CancelChangeEmail", "Users", FormMethod.Post, new {@class = "form-inline"}))
+                         {
+                             <fieldset class="form">
+                                 <legend>Reset to Confirmed Email Address</legend>
+                                 @Html.AntiForgeryToken()
+                                 <button class="btn btn-inline" type="submit">Reset to Confirmed Email Address</button>
+                             </fieldset>
+                         }
+                     }
+                  </text>,
         content: @<text>
-            @using (Html.BeginForm("ChangeEmail", "Users", FormMethod.Post, new { @class = "form-inline" }))
-            {
-                <fieldset class="form">
-                    <legend>Change Email Address</legend>
+                     @using (Html.BeginForm("ChangeEmail", "Users", FormMethod.Post, new {@class = "form-inline"}))
+                     {
+                         <fieldset class="form">
+                             <legend>Change Email Address</legend>
 
-                    @Html.AntiForgeryToken()
-                    @Html.ValidationSummaryFor("ChangeEmail")
+                             @Html.AntiForgeryToken()
+                             @Html.ValidationSummaryFor("ChangeEmail")
 
-                    <div class="form-field">
-                        @Html.LabelFor(m => m.ChangeEmail.NewEmail)
-                        @Html.TextBoxFor(m => m.ChangeEmail.NewEmail)
-                        @Html.ValidationMessageFor(m => m.ChangeEmail.NewEmail)
-                    </div>
+                             <div class="form-field">
+                                 @Html.LabelFor(m => m.ChangeEmail.NewEmail)
+                                 @Html.TextBoxFor(m => m.ChangeEmail.NewEmail)
+                                 @Html.ValidationMessageFor(m => m.ChangeEmail.NewEmail)
+                             </div>
 
-                    @if (hasPassword)
-                    {
-                        <div class="form-field">
-                            @Html.LabelFor(m => m.ChangeEmail.Password)
-                            @Html.PasswordFor(m => m.ChangeEmail.Password)
-                            @Html.ValidationMessageFor(m => m.ChangeEmail.Password)
-                        </div>
-                    }
+                             @if (hasPassword)
+                             {
+                                 <div class="form-field">
+                                     @Html.LabelFor(m => m.ChangeEmail.Password)
+                                     @Html.PasswordFor(m => m.ChangeEmail.Password)
+                                     @Html.ValidationMessageFor(m => m.ChangeEmail.Password)
+                                 </div>
+                             }
 
-                    <img src="@Url.Content("~/Content/images/required.png")" alt="Blue border on left means required." />
+                             <img src="@Url.Content("~/Content/images/required.png")" alt="Blue border on left means required."/>
 
-                    <input type="submit" value="Save" title="Change email address" />
-                </fieldset>
-            }
-        </text>)
+                             <input type="submit" value="Save" title="Change email address"/>
+                         </fieldset>
+                     }
+                  </text>)
 
     @**************************
         Email Notifications
     **************************@
-    @AccordianBar(
+    @ViewHelpers.AccordionBar(
         groupName: "editprofile",
-        title: (CurrentUser.EmailAllowed ? "Subscribed to Email Notifications" : "Not subscribed to Email Notifications (users can't contact you)"),
-        enabled: CurrentUser.EmailAllowed,
+        page: this,
+        title: "Email Notifications",
+        enabled: true,
         actions: @<text>
-            @item.ExpandLink("More Info", "Less Info")
-            @using (Html.BeginForm(actionName: "ChangeEmailSubscription", controllerName: "Users", routeValues: new { subscribe = !CurrentUser.EmailAllowed }, method: FormMethod.Post, htmlAttributes: new { @class = "form-inline" }))
-            {
-                <fieldset class="form">
-                    <legend>Update Email Subscription</legend>
-                    @Html.AntiForgeryToken()
-                    <input type="submit" style="width: auto;"
-                           value="@(CurrentUser.EmailAllowed ? "Unsubscribe" : "Subscribe")"
-                           title="@(CurrentUser.EmailAllowed ? "Unsubscribe" : "Subscribe")" />
-                </fieldset>
-            }
-        </text>,
+                     @(CurrentUser.EmailAllowed ? "Users can contact you" : "Users can not contact you")
+                     | @(CurrentUser.NotifyPackagePushed ? "Receiving package push notifications" : "Not receiving package push notifications")
+                     @item.ExpandButton("Change", "Cancel")
+                  </text>,
         content: @<text>
-            <p>
-                You are <em>@(CurrentUser.EmailAllowed ? "" : "not")</em> subscribed to email notifications.
-                @if (!CurrentUser.EmailAllowed)
-                {
-                    @: However, we will still send important account management and security notices.
-                }
-            </p>
-            <p>
-                <strong>Important:</strong> Subscribing allows other registered users of the site to contact you
-                about packages that you own using the <em>Contact Owners</em> form, or to request that you become an owner
-                of their package. Unsubscribing means users cannot contact you for these reasons.
-            </p>
-        </text>)
+                     @using (Html.BeginRouteForm(routeName: RouteName.ChangeEmailSubscription, method: FormMethod.Post, htmlAttributes: new {@class = "form-inline"}))
+                     {
+                         <fieldset class="form">
+                             <legend>Update Email Notifications</legend>
+                             @Html.AntiForgeryToken()
+                             <div class="form-field">
+                                 <input name="emailAllowed" id="CurrentUser_EmailAllowed" type="checkbox" checked="@(CurrentUser.EmailAllowed)" value="true">
+                                 <label class="checkbox" for="CurrentUser_EmailAllowed">Users can contact me through the <em>Contact Owners form</em></label>
+                                 <p class="smaller">
+                                     This subscription allows other registered users of the site to contact you
+                                     about packages that you own using the <em>Contact Owners</em> form, or to request
+                                     that you become an owner of their package. Unsubscribing means users cannot contact you for these reasons.
+                                 </p>
+                             </div>
+                             <div class="form-field">
+                                 <input name="notifyPackagePushed" id="CurrentUser_NotifyPackagePushed" type="checkbox" checked="@(CurrentUser.NotifyPackagePushed)" value="true">
+                                 <label class="checkbox" for="CurrentUser_NotifyPackagePushed">Notify me when a package is pushed to @Config.Current.Brand using my account</label>
+                                 <p class="smaller">
+                                     This subscription will send a notification whenever a package is pushed using your account.
+                                     We recommend to enable this subscription so that you can inspect whether a package was pushed intentional or not.
+                                     Unsubscribing means no notification will be sent on push.
+                                 </p>
+                             </div>
+                             <input type="submit" value="Save" title="Save changes to email notifications"/>
+                         </fieldset>
+                     }
+
+                     <p>
+                         <br/> <strong>Note:</strong> We will <em>always</em> send important account management and security notices.
+                     </p>
+                  </text>)
 
     @**************************
         Profile Picture
     **************************@
-    @AccordianBar(
+    @ViewHelpers.AccordionBar(
         groupName: "editprofile",
+        page: this,
         title: @<text>
-            Profile Picture
-            @if(!String.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress)) {
-                @:(preview)
-            }
-        </text>,
+                   Profile Picture
+                   @if (!String.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress))
+                   {
+                       @:(preview)
+                   }
+                </text>,
         subtitle: @<text>@ViewHelpers.GravatarImage(currentEmailAddress, CurrentUser.Username, 32)</text>,
         actions: @<text>@item.ExpandLink("More Info", "Less Info")</text>,
         content: @<text>
-            @if (!String.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress))
-            {
-                <text>This is a preview of how your profile picture will look once you have verified your
-                    current email address. </text>
-            }
-            We use your verified email address and
-            <a href="http://www.gravatar.com" target="_blank">gravatar.com</a>
-            to get your profile picture.
-            <a href="http://gravatar.com" target="_blank">Go to gravatar.com</a>
-            to change your profile picture.
-        </text>    )
+                     @if (!String.IsNullOrEmpty(CurrentUser.UnconfirmedEmailAddress))
+                     {
+                         <text>This is a preview of how your profile picture will look once you have verified your
+                             current email address. </text>
+                     }
+                     We use your verified email address and
+                     <a href="http://www.gravatar.com" target="_blank">gravatar.com</a>
+                     to get your profile picture.
+                     <a href="http://gravatar.com" target="_blank">Go to gravatar.com</a>
+                     to change your profile picture.
+                  </text>)
 
     @**************************
         Curated Feeds
@@ -275,245 +213,226 @@
     {
         foreach (var curatedFeed in Model.CuratedFeeds)
         {
-            @AccordianBar(
-                    groupName: "editprofile",
-                    title: "Curated Feed",
-                    subtitle: curatedFeed,
-                    actions: @<text>
-                        <a class="btn btn-inline" href="@Url.RouteUrl(RouteName.CuratedFeed, new { name = curatedFeed })">
-                            Manage
-                        </a>
-                    </text>)
+            @ViewHelpers.AccordionBar(
+                groupName: "editprofile",
+                page: this,
+                title: "Curated Feed",
+                subtitle: curatedFeed,
+                actions: @<text>
+                             <a class="btn btn-inline" href="@Url.RouteUrl(RouteName.CuratedFeed, new {name = curatedFeed})">
+                                 Manage
+                             </a>
+                          </text>)
         }
     }
 </ul>
+
 <h2>Credentials</h2>
 @if (hasPassword && credGroups.ContainsKey(CredentialKind.External) && credGroups[CredentialKind.External].Any())
 {
     <p class="message">
-        Because you have a Microsoft account registered you can remove your password below and use
-        that account to sign in to NuGet.org. No more passwords to forget!
+        Because you have an external account registered you can remove your password below and use
+        that account to sign in to @Config.Current.Brand. No more passwords to forget!
     </p>
 }
     
-<ul class="accordian">
+<ul class="accordion">
     @**************************
-        External Credentials
-    **************************@
+            External Credentials
+        **************************@
     @if (credGroups.ContainsKey(CredentialKind.External))
     {
         foreach (var cred in credGroups[CredentialKind.External])
         {
-            @AccordianBar(
+            @ViewHelpers.AccordionBar(
                 groupName: "editprofile",
+                page: this,
                 title: cred.TypeCaption,
                 subtitle: cred.Identity,
                 actions: @<text>
-                    @item.ExpandLink("More Info", "Less Info")
-                    @if (loginCredentials > 1)
-                    {
-                        using (Html.BeginForm("RemoveCredential", "Users", new { credentialType = cred.Type }, FormMethod.Post, new { @class = "form-inline" }))
-                        {
-                            <fieldset class="form">
-                                <legend>Remove @cred.TypeCaption Credential</legend>
-                                @Html.AntiForgeryToken()
-                                @Html.Hidden(cred.Type)
-                                <button class="btn btn-inline s-confirm" type="submit" data-confirm="Are you sure you want to disassociate your @cred.AuthUI.AccountNoun? This is an irreversable action!">Remove</button>
-                            </fieldset>
-                        }
-                    }
-                </text>,
+                             @item.ExpandLink("More Info", "Less Info")
+                             @if (loginCredentials > 1)
+                             {
+                                 using (Html.BeginForm("RemoveCredential", "Users", new { credentialType = cred.Type, credentialKey = cred.Key }, FormMethod.Post, new { @class = "form-inline" }))
+                                 {
+                                     <fieldset class="form">
+                                         <legend>Remove @cred.TypeCaption Credential</legend>
+                                         @Html.AntiForgeryToken()
+                                         @Html.Hidden(cred.Type)
+                                         <button class="btn btn-inline s-confirm" type="submit" data-confirm="Are you sure you want to disassociate your @cred.AuthUI.AccountNoun? This is an irreversable action!">Remove</button>
+                                     </fieldset>
+                                 }
+                             }
+                          </text>,
                 content: @<p>
-                    You can use this Microsoft account to sign in to NuGet.org
-                </p>)
+                             You can use this @cred.AuthUI.AccountNoun to sign in to @Config.Current.Brand
+                         </p>)
         }
     }
 
     @**************************
-        Password
+            Password
     **************************@
-    @AccordianBar(
+    @ViewHelpers.AccordionBar(
         groupName: "editprofile",
+        page: this,
         title: (hasPassword ? "Password Login" : "Password Login Disabled"),
         enabled: hasPassword,
         formModelStatePrefix: "ChangePassword",
         actions: @<text>
-            @if (hasPassword)
-            {
-                @item.ExpandButton("Change", "Cancel")
-                if (loginCredentials > 1)
-                {
-                    using (Html.BeginForm("RemovePassword", "Users", FormMethod.Post, new { @class = "form-inline" }))
-                    {
-                        <fieldset class="form">
-                            <legend>Disable Password Login</legend>
-                            @Html.AntiForgeryToken()
-                            <button class="btn btn-inline s-confirm" type="submit" data-confirm="Are you sure you want to disable password login and remove your password? This is an irreversable action!">Disable</button>
-                        </fieldset>
-                    }
-                }
-            }
-            else
-            {
-                using (Html.BeginForm("ChangePassword", "Users", FormMethod.Post, new { @class = "form-inline" }))
-                {
-                    <fieldset class="form">
-                        <legend>Enable Password Login</legend>
-                        @Html.AntiForgeryToken()
-                        <button class="btn btn-inline" type="submit">Enable</button>
-                    </fieldset>
-                }
-            }
-        </text>,
+                     @if (hasPassword)
+                     {
+                         @item.ExpandButton("Change", "Cancel")
+                         if (loginCredentials > 1)
+                         {
+                             using (Html.BeginForm("RemovePassword", "Users", FormMethod.Post, new { @class = "form-inline" }))
+                             {
+                                 <fieldset class="form">
+                                     <legend>Disable Password Login</legend>
+                                     @Html.AntiForgeryToken()
+                                     <button class="btn btn-inline s-confirm" type="submit" data-confirm="Are you sure you want to disable password login and remove your password? This is an irreversable action!">Disable</button>
+                                 </fieldset>
+                             }
+                         }
+                     }
+                     else
+                     {
+                         using (Html.BeginForm("ChangePassword", "Users", FormMethod.Post, new { @class = "form-inline" }))
+                         {
+                             <fieldset class="form">
+                                 <legend>Enable Password Login</legend>
+                                 @Html.AntiForgeryToken()
+                                 <button class="btn btn-inline" type="submit">Enable</button>
+                             </fieldset>
+                         }
+                     }
+                  </text>,
         content: @<text>
-            @using (Html.BeginForm("ChangePassword", "Users"))
-            {
-                <fieldset id="account-changepassword-fieldset" class="form">
-                    <legend>Change Password Form</legend>
-
-                    @Html.AntiForgeryToken()
-                    @Html.ValidationSummaryFor("ChangePassword")
-                    <div class="form-field">
-                        @Html.LabelFor(m => m.ChangePassword.OldPassword)
-                        @Html.PasswordFor(m => m.ChangePassword.OldPassword)
-                        @Html.ValidationMessageFor(m => m.ChangePassword.OldPassword)
-                    </div>
-
-                    <div class="form-field">
-                        @Html.LabelFor(m => m.ChangePassword.NewPassword)
-                        @Html.PasswordFor(m => m.ChangePassword.NewPassword)
-                        @Html.ValidationMessageFor(m => m.ChangePassword.NewPassword)
-                    </div>
-
-                    <img src="@Url.Content("~/Content/images/required.png")" alt="Blue border on left means required." />
-
-                    <input type="submit" value="Change" title="Change password" />
-                </fieldset>
-            }
-        </text>)
-
+                     @using (Html.BeginForm("ChangePassword", "Users"))
+                     {
+                         <fieldset id="account-changepassword-fieldset" class="form">
+                             <legend>Change Password Form</legend>
+                             <p>
+                                 Using this form, you can change your password for @(Config.Current.Brand).
+                             </p>
+                             @Html.AntiForgeryToken()
+                             @Html.ValidationSummaryFor("ChangePassword")
+                             <div class="form-field">
+                                 @Html.LabelFor(m => m.ChangePassword.OldPassword)
+                                 @Html.PasswordFor(m => m.ChangePassword.OldPassword)
+                                 @Html.ValidationMessageFor(m => m.ChangePassword.OldPassword)
+                             </div>
+                             <div class="form-field">
+                                 @Html.LabelFor(m => m.ChangePassword.NewPassword)
+                                 @Html.PasswordFor(m => m.ChangePassword.NewPassword)
+                                 @Html.ValidationMessageFor(m => m.ChangePassword.NewPassword)
+                             </div>
+                             <img src="@Url.Content("~/Content/images/required.png")" alt="Blue border on left means required." />
+                             <input type="submit" value="Change" title="Change password" />
+                         </fieldset>
+                     }
+                  </text>)
     @**************************
-        API Key
+            API Key
     **************************@
-    @AccordianBar(
-        groupName: "editprofile",
-        title: @<text>
-            API Key:
-            @if (!CurrentUser.Confirmed)
-            {
-                <text>You need to
-                    <a href="@Url.ConfirmationRequired()">confirm your account</a> before viewing your API Key</text>
+    
+    @Html.Partial("ApiKeys", Model)
+  
+</ul>
+
+@section bottomScripts {
+    <script>
+        function detectIE() {
+            var ua = window.navigator.userAgent;
+
+            var msie = ua.indexOf('MSIE ');
+            if (msie > 0) {
+                // IE 10 or older => return version number
+                return parseInt(ua.substring(msie + 5, ua.indexOf('.', msie)), 10);
             }
-            else if (apiKey == null)
-            {
-                <text>You don't have an API key</text>
+
+            var trident = ua.indexOf('Trident/');
+            if (trident > 0) {
+                // IE 11 => return version number
+                var rv = ua.indexOf('rv:');
+                return parseInt(ua.substring(rv + 3, ua.indexOf('.', rv)), 10);
             }
-            else
-            {
-                <span id="key">@apiKey.Value</span>
-                <object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000"
-                        width="110"
-                        height="14"
-                        class="s-reqflash"
-                        aria-hidden="true"
-                        role="presentation">
-                    <param name="movie" value="@Url.Content("~/Content/clippy.swf")">
-                    <param name="allowScriptAccess" value="always" />
-                    <param name="quality" value="high" />
-                    <param name="scale" value="noscale" />
-                    <param name="FlashVars" value="text=@apiKey.Value">
-                    <param name="bgcolor" value="#eff7fa">
-                    <embed src="@Url.Content("~/Content/clippy.swf")"
-                           width="110"
-                           height="14"
-                           aria-hidden="true"
-                           role="presentation"
-                           name="clippy"
-                           quality="high"
-                           allowscriptaccess="always"
-                           type="application/x-shockwave-flash"
-                           pluginspage="http://www.macromedia.com/go/getflashplayer"
-                           flashvars="text=@apiKey.Value"
-                           bgcolor="#eff7fa" />
-                </object>
-            }
-        </text>,
-        actions: @<text>
-            @item.ExpandLink("More Info", "Less Info")
-            @if (CurrentUser.Confirmed)
-            {
-                using (Html.BeginForm("GenerateApiKey", "Users", FormMethod.Post, new { @class = "form-inline" }))
-                {
-                    <fieldset class="form">
-                        <legend>@(apiKey == null ? "Generate an API Key" : "Generate a new API Key")</legend>
-                        @Html.AntiForgeryToken()
-                        <button class="btn btn-inline" type="submit">@(apiKey == null ? "Generate" : "Reset")</button>
-                    </fieldset>
+
+            // other browser or edge
+            return false;
+        }
+
+        // source: http://stackoverflow.com/questions/400212/how-do-i-copy-to-the-clipboard-in-javascript
+        // enhancement with special case for IEs, otherwise the temp textarea will be visible
+        function copyTextToClipboard(text) {
+            if (detectIE()) {
+                try {
+                    window.clipboardData.setData('Text', text);
+                    console.log('Copying text command via IE-setData');
+                } catch (err) {
+                    console.log('Oops, unable to copy via IE-setData');
                 }
             }
-        </text>,
-        content: @<text>
-            @if (!CurrentUser.Confirmed)
-            {
-                <p>
-                    Your API key provides you with a token that can identify you to the gallery. The
-                    <a href="http://nuget.codeplex.com/">NuGet</a> command-line utility allows you to
-                    submit a NuGet package to the gallery using your API key to authenticate.
-                    To get an API Key you will need to <a href="@Url.ConfirmationRequired()">confirm your account.</a>
-                </p>
-            }
-            else if (apiKey == null)
-            {
-                <p>
-                    An API key provides you with a token that can identify you to the gallery. The
-                    <a href="http://nuget.codeplex.com/">NuGet</a> command-line utility allows you to
-                    submit a NuGet package to the gallery using your API key to authenticate.
-                </p>
-            }
-            else
-            {
-                <p>
-                    Your API key provides you with a token that identifies you to the gallery.
-                    Keep this a secret. You can always regenerate your key at any time (invalidating
-                    previous keys) if your token is accidentally revealed. The
-                    <a href="http://nuget.codeplex.com/">NuGet</a> command-line utility allows you to
-                    submit a NuGet package to the gallery, and you would pass your token like this:
-                </p>
+            else {
 
-                <h4>Example usage:</h4>
-                <p>
-                    <div id="account-apikeysample">
-                        <div>
-                            nuget.exe setApiKey @apiKey.Value
-                            <object classid="clsid:d27cdb6e-ae6d-11cf-96b8-444553540000"
-                                    width="110"
-                                    height="14"
-                                    class="s-reqflash"
-                                    aria-hidden="true"
-                                    role="presentation">
-                                <param name="movie" value="@Url.Content("~/Content/clippy.swf")">
-                                <param name="allowScriptAccess" value="always" />
-                                <param name="quality" value="high" />
-                                <param name="scale" value="noscale" />
-                                <param name="FlashVars" value="text=nuget.exe setApiKey @apiKey.Value">
-                                <param name="bgcolor" value="#202020">
-                                <embed src="@Url.Content("~/Content/clippy.swf")"
-                                        width="110"
-                                        height="14"
-                                        aria-hidden="true"
-                                        role="presentation"
-                                        name="clippy"
-                                        quality="high"
-                                        allowscriptaccess="always"
-                                        type="application/x-shockwave-flash"
-                                        pluginspage="http://www.macromedia.com/go/getflashplayer"
-                                        flashvars="text=nuget.exe setApiKey @apiKey.Value"
-                                        bgcolor="#202020" />
-                            </object>
-                        </div>
-                        <div>nuget.exe push MyPackage.1.0.nupkg</div>
-                    </div>
-                </p>
+                var textArea = document.createElement("textarea");
+
+                //
+                //  This styling is an extra step which is likely not required. 
+                //
+                // Why is it here? To ensure:
+                // 1. the element is able to have focus and selection.
+                // 2. if element was to flash render it has minimal visual impact.
+                // 3. less flakyness with selection and copying which might occur if
+                //    the textarea element is not visible.
+                //
+                // The likelihood is the element won't even render, not even a flash,
+                // so some of these are just precautions. 
+                // 
+                // However in IE the element
+                // is visible whilst the popup box asking the user for permission for
+                // the web page to copy to the clipboard. To prevent this, we are using 
+                // the detectIE workaround.
+
+                // Place in top-left corner of screen regardless of scroll position.
+                textArea.style.position = 'fixed';
+                textArea.style.top = 0;
+                textArea.style.left = 0;
+
+                // Ensure it has a small width and height. Setting to 1px / 1em
+                // doesn't work as this gives a negative w/h on some browsers.
+                textArea.style.width = '2em';
+                textArea.style.height = '2em';
+
+                // We don't need padding, reducing the size if it does flash render.
+                textArea.style.padding = 0;
+
+                // Clean up any borders.
+                textArea.style.border = 'none';
+                textArea.style.outline = 'none';
+                textArea.style.boxShadow = 'none';
+
+                // Avoid flash of white box if rendered for any reason.
+                textArea.style.background = 'transparent';
+
+
+                textArea.value = text;
+
+                document.body.appendChild(textArea);
+
+                textArea.select();
+
+                try {
+                    var successful = document.execCommand('copy');
+                    var msg = successful ? 'successful' : 'unsuccessful';
+                    console.log('Copying text command was ' + msg);
+                } catch (err) {
+                    console.log('Oops, unable to copy');
+                }
+
+                document.body.removeChild(textArea);
             }
-        </text>)
-</ul>
+
+        }
+    </script>
+}

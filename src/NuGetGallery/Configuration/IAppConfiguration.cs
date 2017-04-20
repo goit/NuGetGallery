@@ -9,11 +9,6 @@ namespace NuGetGallery.Configuration
     public interface IAppConfiguration
     {
         /// <summary>
-        /// Gets a boolean inidicating if this environment provides a background worker.
-        /// </summary>
-        bool HasWorker { get; set; }
-
-        /// <summary>
         /// Gets the location in which the Lucene Index is stored
         /// </summary>
         LuceneIndexLocation LuceneIndexLocation { get; set; }
@@ -22,6 +17,11 @@ namespace NuGetGallery.Configuration
         /// Gets the name of the environment in which the gallery is deployed
         /// </summary>
         string Environment { get; set; }
+
+        /// <summary>
+        /// Gets the warning banner text 
+        /// </summary>
+        string WarningBanner { get; set; }
 
         /// <summary>
         /// Gets a setting indicating if SSL is required for all operations once logged in.
@@ -59,11 +59,6 @@ namespace NuGetGallery.Configuration
         string AutocompleteServiceResourceType { get; set; }
 
         /// <summary>
-        /// Gets the URI to the metrics service
-        /// </summary>
-        Uri MetricsServiceUri { get; set; }
-
-        /// <summary>
         /// Gets a boolean indicating if the site requires that email addresses be confirmed
         /// </summary>
         bool ConfirmEmailAddresses { get; set; }
@@ -94,6 +89,11 @@ namespace NuGetGallery.Configuration
         MailAddress GalleryOwner { get; set; }
 
         /// <summary>
+        /// Gets the gallery e-mail from name and email address
+        /// </summary>
+        MailAddress GalleryNoReplyAddress { get; set; }
+
+        /// <summary>
         /// Gets the storage mechanism used by this instance of the gallery
         /// </summary>
         StorageType StorageType { get; set; }
@@ -107,6 +107,11 @@ namespace NuGetGallery.Configuration
         /// Gets the SQL Connection string used to connect to the database
         /// </summary>
         string SqlConnectionString { get; set; }
+
+        /// <summary>
+        /// Gets the SQL Connection string used to connect to the database for support requests
+        /// </summary>
+        string SqlConnectionStringSupportRequest { get; set; }
 
         /// <summary>
         /// Gets the host name of the Azure CDN being used
@@ -147,5 +152,54 @@ namespace NuGetGallery.Configuration
         /// Gets a boolean indicating if the search index should be updated automatically in the background
         /// </summary>
         bool AutoUpdateSearchIndex { get; set; }
+
+        /// <summary>
+        /// Gets a string indicating which authentication provider(s) are supported for administrators. 
+        /// When specified, the gallery will ensure admin users are logging in using any of the specified authentication providers.
+        /// Blank means any authentication provider can be used by administrators.
+        /// </summary>
+        string EnforcedAuthProviderForAdmin { get; set; }
+
+        /// <summary>
+        /// The required format for a user password.
+        /// </summary>
+        string UserPasswordRegex { get; set; }
+
+        /// <summary>
+        /// A message to show the user, to explain password requirements.
+        /// </summary>
+        string UserPasswordHint { get; set; }
+
+        /// <summary>
+        /// Defines the time after which V1 API keys expire.
+        /// </summary>
+        int ExpirationInDaysForApiKeyV1 { get; set; }
+
+        /// <summary>
+        /// Defines the number of days before the API key expires when the server should emit a warning to the client.
+        /// </summary>
+        int WarnAboutExpirationInDaysForApiKeyV1 { get; set; }
+
+        /// <summary>
+        /// Gets a string containing the PagerDuty account name.
+        /// </summary>
+        string PagerDutyAccountName { get; set; }
+
+        /// <summary>
+        /// Gets a string containing the PagerDuty API key.
+        /// </summary>
+        // ReSharper disable once InconsistentNaming
+        string PagerDutyAPIKey { get; set; }
+
+        /// <summary>
+        /// Gets a string containing the PagerDuty Service key.
+        /// </summary>
+        // ReSharper disable once InconsistentNaming
+        string PagerDutyServiceKey { get; set; }
+
+        /// <summary>
+        /// Gets/sets a bool that indicates if the OData requests will be filtered.
+        /// </summary>
+        bool IsODataFilterEnabled { get; set;  }
     }
 }

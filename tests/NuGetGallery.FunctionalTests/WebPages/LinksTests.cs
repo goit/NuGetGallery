@@ -52,6 +52,7 @@ namespace NuGetGallery.FunctionalTests.WebPages
         [Priority(1)]
         [Description("Test all clickable links on the statistics's home page are returning 200")]
         [Category("P1Tests")]
+        [Category(Constants.Category.StatisticsService)]
         public void TestStatisticsPageLinks()
         {
             _fluentLinkChecker.TestLinksOnWebPage(UrlHelper.StatsPageUrl);

@@ -2,7 +2,10 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Data.Entity;
+using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Mail;
 using System.Security.Principal;
@@ -13,11 +16,16 @@ using AnglicanGeek.MarkdownMailer;
 using Autofac;
 using Elmah;
 using Microsoft.WindowsAzure.ServiceRuntime;
+using NuGetGallery.Areas.Admin;
+using NuGetGallery.Areas.Admin.Models;
 using NuGetGallery.Auditing;
 using NuGetGallery.Configuration;
+using NuGetGallery.Configuration.SecretReader;
 using NuGetGallery.Diagnostics;
 using NuGetGallery.Infrastructure;
+using NuGetGallery.Infrastructure.Authentication;
 using NuGetGallery.Infrastructure.Lucene;
+using NuGetGallery.Services;
 
 namespace NuGetGallery
 {
@@ -26,13 +34,34 @@ namespace NuGetGallery
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1502:CyclomaticComplexity", Justification = "This code is more maintainable in the same function.")]
         protected override void Load(ContainerBuilder builder)
         {
-            var configuration = new ConfigurationService();
+            var diagnosticsService = new DiagnosticsService();
+            builder.RegisterInstance(diagnosticsService)
+                .AsSelf()
+                .As<IDiagnosticsService>()
+                .SingleInstance();
+
+            var configuration = new ConfigurationService(new SecretReaderFactory(diagnosticsService));
+
             builder.RegisterInstance(configuration)
                 .AsSelf()
                 .As<PoliteCaptcha.IConfigurationSource>();
+
+            builder.RegisterInstance(configuration)
+                .AsSelf()
+                .As<IGalleryConfigurationService>();
+
             builder.Register(c => configuration.Current)
                 .AsSelf()
                 .As<IAppConfiguration>();
+
+            // Force the read of this configuration, so it will be initialized on startup
+            builder.Register(c => configuration.Features)
+               .AsSelf()
+               .As<FeatureConfiguration>();
+
+            builder.RegisterType<TelemetryService>().As<ITelemetryService>().SingleInstance();
+            builder.RegisterType<CredentialBuilder>().As<ICredentialBuilder>().SingleInstance();
+            builder.RegisterType<CredentialValidator>().As<ICredentialValidator>().SingleInstance();
 
             builder.RegisterInstance(LuceneCommon.GetDirectory(configuration.Current.LuceneIndexLocation))
                 .As<Lucene.Net.Store.Directory>()
@@ -52,6 +81,8 @@ namespace NuGetGallery
                     .As<ErrorLog>()
                     .SingleInstance();
             }
+
+            builder.RegisterType<DateTimeProvider>().AsSelf().As<IDateTimeProvider>().SingleInstance();
 
             builder.RegisterType<HttpContextCacheService>()
                 .AsSelf()
@@ -99,11 +130,6 @@ namespace NuGetGallery
                 .As<IEntityRepository<PackageDependency>>()
                 .InstancePerLifetimeScope();
 
-            builder.RegisterType<EntityRepository<PackageStatistics>>()
-                .AsSelf()
-                .As<IEntityRepository<PackageStatistics>>()
-                .InstancePerLifetimeScope();
-
             builder.RegisterType<EntityRepository<PackageDelete>>()
                 .AsSelf()
                 .As<IEntityRepository<PackageDelete>>()
@@ -124,9 +150,24 @@ namespace NuGetGallery
                 .As<ICuratedFeedService>()
                 .InstancePerLifetimeScope();
 
+            builder.Register(c => new SupportRequestDbContext(configuration.Current.SqlConnectionStringSupportRequest))
+                .AsSelf()
+                .As<ISupportRequestDbContext>()
+                .InstancePerLifetimeScope();
+
+            builder.RegisterType<SupportRequestService>()
+                .AsSelf()
+                .As<ISupportRequestService>()
+                .InstancePerLifetimeScope();
+
             builder.RegisterType<UserService>()
                 .AsSelf()
                 .As<IUserService>()
+                .InstancePerLifetimeScope();
+
+            builder.RegisterType<PackageNamingConflictValidator>()
+                .AsSelf()
+                .As<IPackageNamingConflictValidator>()
                 .InstancePerLifetimeScope();
 
             builder.RegisterType<PackageService>()
@@ -160,7 +201,7 @@ namespace NuGetGallery
                 .AsSelf()
                 .As<IStatusService>()
                 .InstancePerLifetimeScope();
-            
+
             var mailSenderThunk = new Lazy<IMailSender>(
                 () =>
                 {
@@ -170,12 +211,12 @@ namespace NuGetGallery
                         var smtpUri = new SmtpUri(settings.Current.SmtpUri);
 
                         var mailSenderConfiguration = new MailSenderConfiguration
-                            {
-                                DeliveryMethod = SmtpDeliveryMethod.Network,
-                                Host = smtpUri.Host,
-                                Port = smtpUri.Port,
-                                EnableSsl = smtpUri.Secure
-                            };
+                        {
+                            DeliveryMethod = SmtpDeliveryMethod.Network,
+                            Host = smtpUri.Host,
+                            Port = smtpUri.Port,
+                            EnableSsl = smtpUri.Secure
+                        };
 
                         if (!string.IsNullOrWhiteSpace(smtpUri.UserName))
                         {
@@ -190,16 +231,14 @@ namespace NuGetGallery
                     else
                     {
                         var mailSenderConfiguration = new MailSenderConfiguration
-                            {
-                                DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory,
-                                PickupDirectoryLocation = HostingEnvironment.MapPath("~/App_Data/Mail")
-                            };
+                        {
+                            DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory,
+                            PickupDirectoryLocation = HostingEnvironment.MapPath("~/App_Data/Mail")
+                        };
 
                         return new MailSender(mailSenderConfiguration);
                     }
                 });
-
-
 
             builder.Register(c => mailSenderThunk.Value)
                 .AsSelf()
@@ -215,17 +254,23 @@ namespace NuGetGallery
                 .AsSelf()
                 .As<IPrincipal>()
                 .InstancePerLifetimeScope();
-            
+
+            IAuditingService defaultAuditingService = null;
+
             switch (configuration.Current.StorageType)
             {
                 case StorageType.FileSystem:
                 case StorageType.NotSpecified:
-                    ConfigureForLocalFileSystem(builder);
+                    ConfigureForLocalFileSystem(builder, configuration);
+                    defaultAuditingService = GetAuditingServiceForLocalFileSystem(configuration);
                     break;
                 case StorageType.AzureStorage:
                     ConfigureForAzureStorage(builder, configuration);
+                    defaultAuditingService = GetAuditingServiceForAzureStorage(configuration);
                     break;
             }
+
+            RegisterAuditingServices(builder, defaultAuditingService);
 
             builder.RegisterType<FileSystemService>()
                 .AsSelf()
@@ -265,9 +310,14 @@ namespace NuGetGallery
                 .AsSelf()
                 .As<IDiagnosticsService>()
                 .SingleInstance();
+
+            builder.RegisterType<LdapService>()
+                .AsSelf()
+                .As<ILdapService>()
+                .InstancePerLifetimeScope();
         }
-        
-        private static void ConfigureSearch(ContainerBuilder builder, ConfigurationService configuration)
+
+        private static void ConfigureSearch(ContainerBuilder builder, IGalleryConfigurationService configuration)
         {
             if (configuration.Current.ServiceDiscoveryUri == null)
             {
@@ -289,36 +339,37 @@ namespace NuGetGallery
                     .InstancePerLifetimeScope();
             }
         }
-        private static void ConfigureAutocomplete(ContainerBuilder builder, ConfigurationService configuration)
+
+        private static void ConfigureAutocomplete(ContainerBuilder builder, IGalleryConfigurationService configuration)
         {
             if (configuration.Current.ServiceDiscoveryUri != null &&
                 !string.IsNullOrEmpty(configuration.Current.AutocompleteServiceResourceType))
             {
-                builder.RegisterType<AutocompleteServicePackageIdsQuery>()
+                builder.RegisterType<AutoCompleteServicePackageIdsQuery>()
                     .AsSelf()
-                    .As<IPackageIdsQuery>()
+                    .As<IAutoCompletePackageIdsQuery>()
                     .SingleInstance();
 
-                builder.RegisterType<AutocompleteServicePackageVersionsQuery>()
+                builder.RegisterType<AutoCompleteServicePackageVersionsQuery>()
                     .AsSelf()
-                    .As<IPackageVersionsQuery>()
+                    .As<IAutoCompletePackageVersionsQuery>()
                     .InstancePerLifetimeScope();
             }
             else
             {
-                builder.RegisterType<PackageIdsQuery>()
+                builder.RegisterType<AutoCompleteDatabasePackageIdsQuery>()
                     .AsSelf()
-                    .As<IPackageIdsQuery>()
+                    .As<IAutoCompletePackageIdsQuery>()
                     .InstancePerLifetimeScope();
 
-                builder.RegisterType<PackageVersionsQuery>()
+                builder.RegisterType<AutoCompleteDatabasePackageVersionsQuery>()
                     .AsSelf()
-                    .As<IPackageVersionsQuery>()
+                    .As<IAutoCompletePackageVersionsQuery>()
                     .InstancePerLifetimeScope();
             }
         }
 
-        private static void ConfigureForLocalFileSystem(ContainerBuilder builder)
+        private static void ConfigureForLocalFileSystem(ContainerBuilder builder, IGalleryConfigurationService configuration)
         {
             builder.RegisterType<FileSystemFileStorageService>()
                 .AsSelf()
@@ -335,11 +386,6 @@ namespace NuGetGallery
                 .As<IStatisticsService>()
                 .SingleInstance();
 
-            builder.RegisterInstance(AuditingService.None)
-                .AsSelf()
-                .As<AuditingService>()
-                .SingleInstance();
-
             // If we're not using azure storage, then aggregate stats comes from SQL
             builder.RegisterType<SqlAggregateStatsService>()
                 .AsSelf()
@@ -347,7 +393,7 @@ namespace NuGetGallery
                 .InstancePerLifetimeScope();
         }
 
-        private static void ConfigureForAzureStorage(ContainerBuilder builder, ConfigurationService configuration)
+        private static void ConfigureForAzureStorage(ContainerBuilder builder, IGalleryConfigurationService configuration)
         {
             builder.RegisterInstance(new CloudBlobClientWrapper(configuration.Current.AzureStorageConnectionString, configuration.Current.AzureStorageReadAccessGeoRedundant))
                 .AsSelf()
@@ -358,7 +404,7 @@ namespace NuGetGallery
                 .AsSelf()
                 .As<IFileStorageService>()
                 .SingleInstance();
-            
+
             // when running on Windows Azure, we use a back-end job to calculate stats totals and store in the blobs
             builder.RegisterInstance(new JsonAggregateStatsService(configuration.Current.AzureStorageConnectionString, configuration.Current.AzureStorageReadAccessGeoRedundant))
                 .AsSelf()
@@ -383,7 +429,19 @@ namespace NuGetGallery
                 .AsSelf()
                 .As<IStatisticsService>()
                 .SingleInstance();
+        }
 
+        private static IAuditingService GetAuditingServiceForLocalFileSystem(IGalleryConfigurationService configuration)
+        {
+            var auditingPath = Path.Combine(
+                FileSystemFileStorageService.ResolvePath(configuration.Current.FileStorageDirectory),
+                FileSystemAuditingService.DefaultContainerName);
+
+            return new FileSystemAuditingService(auditingPath, AuditActor.GetAspNetOnBehalfOfAsync);
+        }
+
+        private static IAuditingService GetAuditingServiceForAzureStorage(IGalleryConfigurationService configuration)
+        {
             string instanceId;
             try
             {
@@ -394,12 +452,47 @@ namespace NuGetGallery
                 instanceId = Environment.MachineName;
             }
 
-            var localIp = AuditActor.GetLocalIP().Result;
+            var localIp = AuditActor.GetLocalIpAddressAsync().Result;
 
-            builder.RegisterInstance(new CloudAuditingService(instanceId, localIp, configuration.Current.AzureStorageConnectionString, CloudAuditingService.AspNetActorThunk))
-                .AsSelf()
-                .As<AuditingService>()
-                .SingleInstance();
+            return new CloudAuditingService(instanceId, localIp, configuration.Current.AzureStorageConnectionString, AuditActor.GetAspNetOnBehalfOfAsync);
+        }
+
+        private static IAuditingService CombineServices(IEnumerable<IAuditingService> services)
+        {
+            if (!services.Any())
+            {
+                return null;
+            }
+
+            if (services.Count() == 1)
+            {
+                return services.First();
+            }
+
+            return new AggregateAuditingService(services);
+        }
+
+        private static void RegisterAuditingServices(ContainerBuilder builder, IAuditingService defaultAuditingService)
+        {
+            var addInsDirectoryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bin", "add-ins");
+
+            using (var serviceProvider = RuntimeServiceProvider.Create(addInsDirectoryPath))
+            {
+                var auditingServices = serviceProvider.GetExportedValues<IAuditingService>();
+                var services = new List<IAuditingService>(auditingServices);
+
+                if (defaultAuditingService != null)
+                {
+                    services.Add(defaultAuditingService);
+                }
+
+                var service = CombineServices(services);
+
+                builder.RegisterInstance(service)
+                    .AsSelf()
+                    .As<IAuditingService>()
+                    .SingleInstance();
+            }
         }
     }
 }

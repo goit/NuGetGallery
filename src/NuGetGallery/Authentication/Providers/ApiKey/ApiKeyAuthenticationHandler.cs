@@ -1,16 +1,17 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Owin;
 using Microsoft.Owin.Logging;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
+using Newtonsoft.Json;
+using NuGetGallery.Infrastructure.Authentication;
 
 namespace NuGetGallery.Authentication.Providers.ApiKey
 {
@@ -20,14 +21,32 @@ namespace NuGetGallery.Authentication.Providers.ApiKey
 
         protected ILogger Logger { get; set; }
         protected AuthenticationService Auth { get; set; }
+        protected ICredentialBuilder CredentialBuilder { get; set; }
 
         private ApiKeyAuthenticationOptions TheOptions { get { return _options ?? Options; } }
 
         internal ApiKeyAuthenticationHandler() { }
-        public ApiKeyAuthenticationHandler(ILogger logger, AuthenticationService auth)
+
+        public ApiKeyAuthenticationHandler(ILogger logger, AuthenticationService auth, ICredentialBuilder credentialBuilder)
         {
+            if (logger == null)
+            {
+                throw new ArgumentNullException(nameof(logger));
+            }
+
+            if (auth == null)
+            {
+                throw new ArgumentNullException(nameof(auth));
+            }
+
+            if (credentialBuilder == null)
+            {
+                throw new ArgumentNullException(nameof(credentialBuilder));
+            }
+
             Logger = logger;
             Auth = auth;
+            CredentialBuilder = credentialBuilder;
         }
 
         internal Task InitializeAsync(ApiKeyAuthenticationOptions options, IOwinContext context)
@@ -69,28 +88,34 @@ namespace NuGetGallery.Authentication.Providers.ApiKey
             Response.Write(message);
         }
 
-        protected override Task<AuthenticationTicket> AuthenticateCoreAsync()
+        protected override async Task<AuthenticationTicket> AuthenticateCoreAsync()
         {
             var apiKey = Request.Headers[TheOptions.ApiKeyHeaderName];
-            if (!String.IsNullOrEmpty(apiKey))
+            if (!string.IsNullOrEmpty(apiKey))
             {
                 // Get the user
-                var authUser = Auth.Authenticate(CredentialBuilder.CreateV1ApiKey(apiKey));
+                var authUser = await Auth.Authenticate(apiKey);
                 if (authUser != null)
                 {
                     // Set the current user
                     Context.Set(Constants.CurrentUserOwinEnvironmentKey, authUser);
 
-                    return Task.FromResult(
-                        new AuthenticationTicket(
+                    // Fetch scopes and store them in a claim
+                    var scopes = JsonConvert.SerializeObject(
+                        authUser.CredentialUsed.Scopes, Formatting.None);
+
+                    // Create authentication ticket
+                    return new AuthenticationTicket(
                             AuthenticationService.CreateIdentity(
                                 authUser.User, 
                                 AuthenticationTypes.ApiKey, 
-                                new Claim(NuGetClaims.ApiKey, apiKey)),
-                            new AuthenticationProperties()));
+                                new Claim(NuGetClaims.ApiKey, apiKey),
+                                new Claim(NuGetClaims.Scope, scopes)),
+                            new AuthenticationProperties());
                 }
                 else
                 {
+                    // No user was matched
                     Logger.WriteWarning("No match for API Key!");
                 }
             }
@@ -98,7 +123,8 @@ namespace NuGetGallery.Authentication.Providers.ApiKey
             {
                 Logger.WriteVerbose("No API Key Header found in request.");
             }
-            return Task.FromResult<AuthenticationTicket>(null);
+
+            return null;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 namespace NuGetGallery
 {
     public static class RouteName
@@ -34,6 +35,7 @@ namespace NuGetGallery
         public const string PasswordSet = "PasswordSet";
         public const string NewSubmission = "NewSubmission";
         public const string VerifyPackage = "VerifyPackage";
+        public const string CreatePackageVerificationKey = "CreatePackageVerificationKey";
         public const string VerifyPackageKey = "VerifyPackageKey";
         public const string CancelUpload = "CancelUpload";
         public const string CuratedFeed = "CuratedFeed";
@@ -47,7 +49,6 @@ namespace NuGetGallery
         public const string StatisticsPackageDownloadsByVersion = "StatisticsPackageDownloadsByVersion";
         public const string StatisticsPackageDownloadsDetail = "StatisticsPackageDownloadsDetail";
         public const string StatisticsDownloadsApi = "StatisticsDownloadsApi";
-        public const string ServiceAlert = "ServiceAlert";
         public const string LegacyRegister = "LegacyRegister";
         public const string LegacyRegister2 = "LegacyRegister2";
         public const string PackageEnableLicenseReport = "EnableLicenseReport";
@@ -59,12 +60,13 @@ namespace NuGetGallery
         public const string RemoveCredential = "RemoveCredential";
         public const string RemovePassword = "RemovePassword";
         public const string ConfirmAccount = "ConfirmAccount";
-        public const string SubscribeToEmails = "SubscribeToEmails";
-        public const string UnsubscribeFromEmails = "UnsubscribeFromEmails";
+        public const string ChangeEmailSubscription = "ChangeEmailSubscription";
         public const string Error500 = "Error500";
         public const string Error404 = "Error404";
         public const string Status = "Status";
         public const string Contributors = "Contributors";
         public const string Team = "Team";
+        public const string JsonApi = "JsonApi";
+        public const string Downloads = "Downloads";
     }
 }

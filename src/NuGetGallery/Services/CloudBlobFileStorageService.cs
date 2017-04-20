@@ -55,12 +55,12 @@ namespace NuGetGallery
         {
             if (String.IsNullOrWhiteSpace(folderName))
             {
-                throw new ArgumentNullException("folderName");
+                throw new ArgumentNullException(nameof(folderName));
             }
 
             if (String.IsNullOrWhiteSpace(fileName))
             {
-                throw new ArgumentNullException("fileName");
+                throw new ArgumentNullException(nameof(fileName));
             }
 
             return (await GetBlobContentAsync(folderName, fileName)).Data;
@@ -70,12 +70,12 @@ namespace NuGetGallery
         {
             if (String.IsNullOrWhiteSpace(folderName))
             {
-                throw new ArgumentNullException("folderName");
+                throw new ArgumentNullException(nameof(folderName));
             }
 
             if (String.IsNullOrWhiteSpace(fileName))
             {
-                throw new ArgumentNullException("fileName");
+                throw new ArgumentNullException(nameof(fileName));
             }
 
             ICloudBlobContainer container = await GetContainer(folderName);
@@ -100,11 +100,22 @@ namespace NuGetGallery
             }
         }
 
-        public async Task SaveFileAsync(string folderName, string fileName, Stream packageFile)
+        public async Task SaveFileAsync(string folderName, string fileName, Stream packageFile, bool overwrite = true)
         {
             ICloudBlobContainer container = await GetContainer(folderName);
             var blob = container.GetBlobReference(fileName);
-            await blob.DeleteIfExistsAsync();
+
+            if (overwrite)
+            {
+                await blob.DeleteIfExistsAsync();
+            }
+            else if (await blob.ExistsAsync())
+            {
+                throw new InvalidOperationException(
+                    String.Format(CultureInfo.CurrentCulture, "There is already a blob with name {0} in container {1}.",
+                        fileName, folderName));
+            }
+
             await blob.UploadFromStreamAsync(packageFile);
             blob.Properties.ContentType = GetContentType(folderName);
             await blob.SetPropertiesAsync();
@@ -242,11 +253,29 @@ namespace NuGetGallery
 
         internal Uri GetRedirectUri(Uri requestUrl, Uri blobUri)
         {
-            string host = String.IsNullOrEmpty(_configuration.AzureCdnHost) ? blobUri.Host : _configuration.AzureCdnHost;
+            var host = string.IsNullOrEmpty(_configuration.AzureCdnHost)
+                ? blobUri.Host 
+                : _configuration.AzureCdnHost;
+
+            // When a blob query string is passed, that one always wins.
+            // This will only happen on private NuGet gallery instances,
+            // not on NuGet.org.
+            // When no blob query string is passed, we forward the request
+            // URI's query string to the CDN. See https://github.com/NuGet/NuGetGallery/issues/3168
+            // and related PR's.
+            var queryString = !string.IsNullOrEmpty(blobUri.Query)
+                ? blobUri.Query
+                : requestUrl.Query;
+
+            if (!string.IsNullOrEmpty(queryString))
+            {
+                queryString = queryString.TrimStart('?');
+            }
+
             var urlBuilder = new UriBuilder(requestUrl.Scheme, host)
             {
                 Path = blobUri.LocalPath,
-                Query = blobUri.Query
+                Query = queryString
             };
 
             return urlBuilder.Uri;

@@ -2,10 +2,13 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -34,25 +37,96 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
         [Category("P0Tests")]
         public async Task FindPackagesByIdTest()
         {
-            // Temporary workaround for the SSL issue, which keeps the upload test from working with cloudapp.net sites
-            if (UrlHelper.BaseUrl.Contains("nugettest.org") || UrlHelper.BaseUrl.Contains("nuget.org"))
+            string packageId = string.Format("TestV2FeedFindPackagesById.{0}", DateTime.UtcNow.Ticks);
+
+            TestOutputHelper.WriteLine("Uploading package '{0}'", packageId);
+            await _clientSdkHelper.UploadNewPackage(packageId);
+
+            TestOutputHelper.WriteLine("Uploaded package '{0}'", packageId);
+            await _clientSdkHelper.UploadNewPackage(packageId, "2.0.0");
+
+            // "&$orderby=Version" is appended to bypass the search hijacker
+            string url = UrlHelper.V2FeedRootUrl + @"/FindPackagesById()?id='" + packageId + "'&$orderby=Version";
+            string[] expectedTexts =
             {
-                string packageId = string.Format("TestV2FeedFindPackagesById.{0}", DateTime.UtcNow.Ticks);
-
-                TestOutputHelper.WriteLine("Uploading package '{0}'", packageId);
-                await _clientSdkHelper.UploadNewPackageAndVerify(packageId);
-                TestOutputHelper.WriteLine("Uploaded package '{0}'", packageId);
-
-                await _clientSdkHelper.UploadNewPackageAndVerify(packageId, "2.0.0");
-
-                string url = UrlHelper.V2FeedRootUrl + @"/FindPackagesById()?id='" + packageId + "'";
-                string[] expectedTexts =
-                {
                     @"<id>" + UrlHelper.V2FeedRootUrl + "Packages(Id='" + packageId + "',Version='1.0.0')</id>",
                     @"<id>" + UrlHelper.V2FeedRootUrl + "Packages(Id='" + packageId + "',Version='2.0.0')</id>"
                 };
-                var containsResponseText = await _odataHelper.ContainsResponseText(url, expectedTexts);
-                Assert.True(containsResponseText);
+            var containsResponseText = await _odataHelper.ContainsResponseText(url, expectedTexts);
+            Assert.True(containsResponseText);
+        }
+
+        private const int PackagesInOrderNumPackages = 10;
+
+        [Fact]
+        [Description("Upload multiple packages and then unlist them and verify that they appear in the feed in the correct order")]
+        [Priority(1)]
+        [Category("P0Tests")] 
+        public async Task PackagesAppearInFeedInOrderTest()
+        {
+            // This test uploads/unlists packages in a particular order to test the timestamps of the packages in the feed.
+            // Because it waits for previous requests to finish before starting new ones, it will only catch ordering issues if these issues are greater than a second or two.
+            // This is consistent with the time frame in which we've seen these issues in the past, but if new issues arise that are on a smaller scale, this test will not catch it!
+            var packageIds = new List<string>(PackagesInOrderNumPackages);
+            var startingTime = DateTime.UtcNow;
+
+            // Upload the packages in order.
+            var uploadStartTimestamp = DateTime.UtcNow.AddMinutes(-1);
+            for (var i = 0; i < PackagesInOrderNumPackages; i++)
+            {
+                var packageId = GetPackagesAppearInFeedInOrderPackageId(startingTime, i);
+                await _clientSdkHelper.UploadNewPackage(packageId);
+                packageIds.Add(packageId);
+            }
+
+            await CheckPackageTimestampsInOrder(packageIds, "Created", uploadStartTimestamp);
+
+            // Unlist the packages in order.
+            var unlistStartTimestamp = DateTime.UtcNow.AddMinutes(-1);
+            for (var i = 0; i < PackagesInOrderNumPackages; i++)
+            {
+                await _clientSdkHelper.UnlistPackage(packageIds[i]);
+            }
+
+            await CheckPackageTimestampsInOrder(packageIds, "LastEdited", unlistStartTimestamp);
+        }
+
+        private static string GetPackagesAppearInFeedInOrderPackageId(DateTime startingTime, int i)
+        {
+            return $"TestV2FeedPackagesAppearInFeedInOrderTest.{startingTime.Ticks}.{i}";
+        }
+
+        private static string GetPackagesAppearInFeedInOrderUrl(DateTime time, string timestamp)
+        {
+            return $"{UrlHelper.V2FeedRootUrl}/Packages?$filter={timestamp} gt DateTime'{time:o}'&$orderby={timestamp} desc&$select={timestamp}";
+        }
+
+        /// <summary>
+        /// Verifies if a set of packages in the feed have timestamps in a particular order.
+        /// </summary>
+        /// <param name="packageIds">An ordered list of package ids. Each package id in the list must have a timestamp in the feed earlier than all package ids after it.</param>
+        /// <param name="timestampPropertyName">The timestamp property to test the ordering of. For example, "Created" or "LastEdited".</param>
+        /// <param name="operationStartTimestamp">A timestamp that is before all of the timestamps expected to be found in the feed. This is used in a request to the feed.</param>
+        private async Task CheckPackageTimestampsInOrder(List<string> packageIds, string timestampPropertyName,
+            DateTime operationStartTimestamp)
+        {
+            var lastTimestamp = DateTime.MinValue;
+            for (var i = 0; i < PackagesInOrderNumPackages; i++)
+            {
+                var packageId = packageIds[i];
+                TestOutputHelper.WriteLine($"Attempting to check order of package #{i} {timestampPropertyName} timestamp in feed.");
+
+                var newTimestamp =
+                    await
+                        _odataHelper.GetTimestampOfPackageFromResponse(
+                            GetPackagesAppearInFeedInOrderUrl(operationStartTimestamp, timestampPropertyName),
+                            timestampPropertyName,
+                            packageId);
+
+                Assert.True(newTimestamp.HasValue);
+                Assert.True(newTimestamp.Value > lastTimestamp,
+                    $"Package #{i} was last modified after package #{i - 1} but has an earlier {timestampPropertyName} timestamp ({newTimestamp} should be greater than {lastTimestamp}).");
+                lastTimestamp = newTimestamp.Value;
             }
         }
 
@@ -66,7 +140,7 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
         public async Task GetUpdates1199RegressionTest()
         {
             // Use the same package name, but force the version to be unique.
-            var packageName = "NuGetGallery.FunctionalTests.ODataTests.GetUpdates1199RegressionTest";
+            var packageName = "GetUpdates1199RegressionTest";
             var ticks = DateTime.Now.Ticks.ToString();
             var version1 = new Version(ticks.Substring(0, 6) + "." + ticks.Substring(6, 6) + "." + ticks.Substring(12, 6)).ToString();
             var version2 = new Version(Convert.ToInt32(ticks.Substring(0, 6) + 1) + "." + ticks.Substring(6, 6) + "." + ticks.Substring(12, 6)).ToString();
@@ -81,11 +155,32 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
 
             Assert.True((processResult.ExitCode == 0), Constants.UploadFailureMessage + "Exit Code: " + processResult.ExitCode + ". Error message: \"" + processResult.StandardError + "\"");
 
-            var url = UrlHelper.V2FeedRootUrl + @"/GetUpdates()?packageIds='NuGetGallery.FunctionalTests.ODataTests.GetUpdates1199RegressionTest%7COwin%7CMicrosoft.Web.Infrastructure%7CMicrosoft.AspNet.Identity.Core%7CMicrosoft.AspNet.Identity.EntityFramework%7CMicrosoft.AspNet.Identity.Owin%7CMicrosoft.AspNet.Web.Optimization%7CRespond%7CWebGrease%7CjQuery%7CjQuery.Validation%7CMicrosoft.Owin.Security.Twitter%7CMicrosoft.Owin.Security.OAuth%7CMicrosoft.Owin.Security.MicrosoftAccount%7CMicrosoft.Owin.Security.Google%7CMicrosoft.Owin.Security.Facebook%7CMicrosoft.Owin.Security.Cookies%7CMicrosoft.Owin%7CMicrosoft.Owin.Host.SystemWeb%7CMicrosoft.Owin.Security%7CModernizr%7CMicrosoft.jQuery.Unobtrusive.Validation%7CMicrosoft.AspNet.WebPages%7CMicrosoft.AspNet.Razor%7Cbootstrap%7CAntlr%7CMicrosoft.AspNet.Mvc%7CNewtonsoft.Json%7CEntityFramework'&versions='" + version1 + "%7C1.0%7C1.0.0.0%7C1.0.0%7C1.0.0%7C1.0.0%7C1.1.1%7C1.2.0%7C1.5.2%7C1.10.2%7C1.11.1%7C2.0.0%7C2.0.0%7C2.0.0%7C2.0.0%7C2.0.0%7C2.0.0%7C2.0.0%7C2.0.0%7C2.0.0%7C2.6.2%7C3.0.0%7C3.0.0%7C3.0.0%7C3.0.0%7C3.4.1.9004%7C5.0.0%7C5.0.6%7C6.0.0'&includePrerelease=false&includeAllVersions=false&targetFrameworks='net45'&versionConstraints='%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C%7C'";
+            var packagesList = new List<string>
+            {
+                packageName,
+                "Microsoft.Bcl.Build",
+                "Microsoft.Bcl",
+                "Microsoft.Net.Http"
+            };
+            var versionsList = new List<string>
+            {
+                version1,
+                "1.0.6",
+                "1.0.19",
+                "2.1.6-rc"
+            };
+            var url = UrlHelper.V2FeedRootUrl +
+                @"/GetUpdates()?packageIds='" +
+                string.Join("%7C", packagesList) +
+                @"'&versions='" +
+                string.Join("%7C", versionsList) +
+                @"'&includePrerelease=false&includeAllVersions=false&targetFrameworks='net45'&versionConstraints='" +
+                string.Join("%7C", Enumerable.Repeat(string.Empty, packagesList.Count)) +
+                @"'";
             string[] expectedTexts =
             {
-                @"<title type=""text"">NuGetGallery.FunctionalTests.ODataTests.GetUpdates1199RegressionTest</title>",
-                @"<d:Version>" + version2 + "</d:Version><d:NormalizedVersion>" + version2 + "</d:NormalizedVersion>"
+                $@"<title type=""text"">{packageName}</title>",
+                $@"<d:Version>{version2}</d:Version><d:NormalizedVersion>{version2}</d:NormalizedVersion>"
             };
             var containsResponseText = await _odataHelper.ContainsResponseText(url, expectedTexts);
 
@@ -99,6 +194,7 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
         [Description("Verify the most downloaded package list returned by the feed is the same with that shown on the statistics page")]
         [Priority(1)]
         [Category("P1Tests")]
+        [Category(Constants.Category.StatisticsService)]
         public async Task PackageFeedSortingTest()
         {
             var request = WebRequest.Create(UrlHelper.V2FeedRootUrl + @"stats/downloads/last6weeks/");
@@ -144,6 +240,92 @@ namespace NuGetGallery.FunctionalTests.ODataFeeds
                 // We add angle brackets to prevent false failures due to duplicate package names in the page.
                 var condition = responseText.IndexOf(">" + packageName[i - 1] + "<", StringComparison.Ordinal) < responseText.IndexOf(">" + packageName[i] + "<", StringComparison.Ordinal);
                 Assert.True(condition, "Expected string " + packageName[i - 1] + " to come before " + packageName[i] + ".  Expected list is: " + packageName[0] + ", " + packageName[1] + ", " + packageName[2] + ", " + packageName[3] + ", " + packageName[4] + ", " + packageName[5] + ", " + packageName[6] + ", " + packageName[7] + ", " + packageName[8] + ", " + packageName[9]);
+            }
+        }
+
+        [Fact]
+        [Description("VerifyPackageKey fails if package isn't found.")]
+        [Priority(1)]
+        [Category("P1Tests")]
+        public async Task VerifyPackageKeyReturns404ForMissingPackage()
+        {
+            Assert.Equal(HttpStatusCode.NotFound, await VerifyPackageKey(EnvironmentSettings.TestAccountApiKey, "VerifyPackageKeyReturns404ForMissingPackage", "1.0.0"));
+        }
+
+        [Fact]
+        [Description("VerifyPackageKey succeeds for full API key without deletion.")]
+        [Priority(1)]
+        [Category("P1Tests")]
+        public async Task VerifyPackageKeyReturns200ForFullApiKey()
+        {
+            var packageId = $"VerifyPackageKeyReturns200ForFullApiKey.{DateTimeOffset.UtcNow.Ticks}";
+            var packageVersion = "1.0.0";
+
+            await _clientSdkHelper.UploadNewPackage(packageId, packageVersion);
+            
+            Assert.Equal(HttpStatusCode.OK, await VerifyPackageKey(EnvironmentSettings.TestAccountApiKey, packageId));
+            Assert.Equal(HttpStatusCode.OK, await VerifyPackageKey(EnvironmentSettings.TestAccountApiKey, packageId, packageVersion));
+        }
+
+        [Fact]
+        [Description("VerifyPackageKey succeeds for temp API key with deletion.")]
+        [Priority(1)]
+        [Category("P1Tests")]
+        public async Task VerifyPackageKeyReturns200ForTempApiKey()
+        {
+            var packageId = $"VerifyPackageKeySupportsFullAndTempApiKeys.{DateTimeOffset.UtcNow.Ticks}";
+            var packageVersion = "1.0.0";
+
+            await _clientSdkHelper.UploadNewPackage(packageId, packageVersion);
+            
+            var verificationKey = await CreateVerificationKey(packageId, packageVersion);
+
+            Assert.Equal(HttpStatusCode.OK, await VerifyPackageKey(verificationKey, packageId, packageVersion));
+            Assert.Equal(HttpStatusCode.Forbidden, await VerifyPackageKey(verificationKey, packageId, packageVersion));
+        }
+
+        private async Task<string> CreateVerificationKey(string packageId, string packageVersion)
+        {
+            var request = WebRequest.Create(UrlHelper.V2FeedRootUrl + $"package/create-verification-key/{packageId}/{packageVersion}");
+            request.Method = "POST";
+            request.ContentLength = 0;
+            request.Headers.Add("X-NuGet-ApiKey", EnvironmentSettings.TestAccountApiKey);
+            request.Headers.Add("X-NuGet-Client-Version", "NuGetGallery.FunctionalTests");
+
+            var response = await request.GetResponseAsync() as HttpWebResponse;
+            Assert.NotNull(response);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            
+            string responseText;
+            using (var sr = new StreamReader(response.GetResponseStream()))
+            {
+                responseText = await sr.ReadToEndAsync();
+            }
+
+            var json = JObject.Parse(responseText);
+            var expiration = json.Value<DateTime>("Expires");
+            Assert.True(expiration - DateTime.UtcNow < TimeSpan.FromDays(1), "Verification keys should expire after 1 day.");
+
+            return json.Value<string>("Key");
+        }
+
+        private async Task<HttpStatusCode> VerifyPackageKey(string apiKey, string packageId, string packageVersion = null)
+        {
+            var route = string.IsNullOrWhiteSpace(packageVersion) ?
+                $"verifykey/{packageId}" :
+                $"verifykey/{packageId}/{packageVersion}";
+
+            var request = WebRequest.Create(UrlHelper.V2FeedRootUrl + route);
+            request.Headers.Add("X-NuGet-ApiKey", apiKey);
+            
+            try
+            {
+                var response = await request.GetResponseAsync() as HttpWebResponse;
+                return response.StatusCode;
+            }
+            catch (WebException e)
+            {
+                return ((HttpWebResponse)e.Response).StatusCode;
             }
         }
     }

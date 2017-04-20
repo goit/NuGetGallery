@@ -1,9 +1,11 @@
-version: 3.0.{build}
+version: 3.1.{build}
 configuration: Release
+os: Visual Studio 2015
+build_script:
+- cmd: 'build.cmd /p:SimpleVersion=%APPVEYOR_BUILD_VERSION% /p:Branch=%APPVEYOR_REPO_BRANCH% /p:Commit=%APPVEYOR_REPO_COMMIT:~0,6%'
+artifacts:
+- path: 'artifacts\*.nupkg'
+cache:
+- packages -> **\packages.config
 nuget:
   disable_publish_on_pr: true
-build_script:
-- cmd: build.cmd
-artifacts:
-- path: '**\app.publish\*.cspkg'
-- path: '**\app.publish\*.nupkg'

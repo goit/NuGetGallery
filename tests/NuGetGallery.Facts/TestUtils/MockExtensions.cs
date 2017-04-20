@@ -1,14 +1,15 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-using Moq.Language.Flow;
+
+using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using Moq;
-using NuGetGallery.Authentication;
-using System;
-using Xunit;
 using Moq.Language;
+using Moq.Language.Flow;
+using NuGetGallery.Authentication;
+using Xunit;
 
 namespace NuGetGallery
 {
@@ -62,20 +63,40 @@ namespace NuGetGallery
         public static void VerifyCommitted<T>(this Mock<IEntityRepository<T>> self)
             where T : class, IEntity, new()
         {
-            self.Verify(e => e.CommitChanges());
+            self.VerifyCommitted(Times.AtLeastOnce());
+        }
+
+        public static void VerifyCommitted<T>(this Mock<IEntityRepository<T>> self, Times times)
+            where T : class, IEntity, new()
+        {
+            self.Verify(e => e.CommitChangesAsync(), times);
         }
 
         public static void VerifyCommitted(this Mock<IEntitiesContext> self)
         {
-            self.Verify(e => e.SaveChanges());
+            self.VerifyCommitted(Times.AtLeastOnce());
+        }
+
+        public static void VerifyCommitted(this Mock<IEntitiesContext> self, Times times)
+        {
+            self.Verify(e => e.SaveChangesAsync(), times);
         }
 
         public static IReturnsResult<AuthenticationService> SetupAuth(this Mock<AuthenticationService> self, Credential cred, User user)
         {
-            return self.Setup(us => us.Authenticate(It.Is<Credential>(c =>
-                String.Equals(c.Type, cred.Type, StringComparison.OrdinalIgnoreCase) &&
-                String.Equals(c.Value, cred.Value, StringComparison.Ordinal))))
-                .Returns(user == null ? null : new AuthenticatedUser(user, cred));
+            if (CredentialTypes.IsApiKey(cred.Type))
+            {
+                return self.Setup(us => us.Authenticate(It.Is<string>(c =>
+                            string.Equals(c, cred.Value, StringComparison.Ordinal))))
+                    .Returns(Task.FromResult(user == null ? null : new AuthenticatedUser(user, cred)));
+            }
+            else
+            {
+                return self.Setup(us => us.Authenticate(It.Is<Credential>(c =>
+                        string.Equals(c.Type, cred.Type, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(c.Value, cred.Value, StringComparison.Ordinal))))
+                    .Returns(Task.FromResult(user == null ? null : new AuthenticatedUser(user, cred)));
+            }
         }
     }
 }

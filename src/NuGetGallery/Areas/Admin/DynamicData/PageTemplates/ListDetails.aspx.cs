@@ -20,7 +20,7 @@ namespace NuGetGallery
             FormView1.SetMetaTable(table);
             GridDataSource.EntityTypeFilter = table.EntityType.Name;
             DetailsDataSource.EntityTypeFilter = table.EntityType.Name;
-
+            ViewStateUserKey = User.Identity.Name;
         }
 
         protected void Page_Load(object sender, EventArgs e)
@@ -133,7 +133,7 @@ namespace NuGetGallery
             }
         }
 
-        private void SetDeleteConfirmation(TableRow row)
+        private static void SetDeleteConfirmation(TableRow row)
         {
             foreach (Control c in row.Cells[0].Controls)
             {

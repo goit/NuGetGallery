@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Data.Entity;
+using System.Threading.Tasks;
 
 namespace NuGetGallery
 {
@@ -11,8 +12,10 @@ namespace NuGetGallery
         IDbSet<CuratedPackage> CuratedPackages { get; set; }
         IDbSet<PackageRegistration> PackageRegistrations { get; set; }
         IDbSet<Credential> Credentials { get; set; }
+        IDbSet<Scope> Scopes { get; set; }
+
         IDbSet<User> Users { get; set; }
-        int SaveChanges();
+        Task<int> SaveChangesAsync();
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1716:IdentifiersShouldNotMatchKeywords", MessageId = "Set", Justification="This is to match the EF terminology.")]
         IDbSet<T> Set<T>() where T : class;
         void DeleteOnCommit<T>(T entity) where T : class;

@@ -18,8 +18,9 @@ namespace NuGetGallery
         {
             if (httpContext == null)
             {
-                throw new ArgumentNullException("httpContext");
+                throw new ArgumentNullException(nameof(httpContext));
             }
+
             _httpContext = httpContext;
         }
 
@@ -75,6 +76,7 @@ namespace NuGetGallery
             {
                 var cookie = new HttpCookie(TempDataCookieKey);
                 cookie.HttpOnly = true;
+                cookie.Secure = true;
                 foreach (var item in values)
                 {
                     cookie[item.Key] = Convert.ToString(item.Value, CultureInfo.InvariantCulture);

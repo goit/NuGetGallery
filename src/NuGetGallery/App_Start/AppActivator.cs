@@ -7,21 +7,21 @@ using System.Diagnostics;
 using System.IO;
 using System.Security.Claims;
 using System.Web.Helpers;
+using System.Web.Http;
 using System.Web.Hosting;
 using System.Web.Mvc;
 using System.Web.Optimization;
 using System.Web.Routing;
 using System.Web.UI;
 using Elmah;
-using Microsoft.Web.Infrastructure.DynamicModuleHelper;
 using Microsoft.WindowsAzure.Diagnostics;
 using Microsoft.WindowsAzure.ServiceRuntime;
+using NuGet.Services.Search.Client.Correlation;
 using NuGetGallery;
 using NuGetGallery.Configuration;
 using NuGetGallery.Diagnostics;
 using NuGetGallery.Infrastructure;
 using NuGetGallery.Infrastructure.Jobs;
-using NuGetGallery.Jobs;
 using WebBackgrounder;
 using WebActivatorEx;
 
@@ -43,8 +43,6 @@ namespace NuGetGallery
 
             ViewEngines.Engines.Clear();
             ViewEngines.Engines.Add(CreateViewEngine());
-            
-            GlimpsePreStart();
 
             try
             {
@@ -107,14 +105,9 @@ namespace NuGetGallery
             return ret;
         }
 
-        private static void GlimpsePreStart()
-        {
-            DynamicModuleUtility.RegisterModule(typeof(Glimpse.AspNet.HttpModule));
-        }
-
         private static void CloudPreStart()
         {
-            Trace.Listeners.Add(new DiagnosticMonitorTraceListener());
+            //Trace.Listeners.Add(new DiagnosticMonitorTraceListener());
         }
 
         private static void BundlingPostStart()
@@ -163,12 +156,35 @@ namespace NuGetGallery
             var fontAwesomeBundle = new StyleBundle("~/Content/font-awesome/css");
             fontAwesomeBundle.Include("~/Content/font-awesome/font-awesome.css");
             BundleTable.Bundles.Add(fontAwesomeBundle);
+
+            // Support Requests admin area bundle
+            var jQueryUiStylesBundle = new StyleBundle("~/Content/themes/custom/jqueryui")
+                .Include("~/Content/themes/custom/jquery-ui-1.10.3.custom.css");
+            BundleTable.Bundles.Add(jQueryUiStylesBundle);
+
+            var supportRequestStylesBundle = new StyleBundle("~/Content/supportrequests")
+                .Include("~/Content/admin/SupportRequestStyles.css");
+            BundleTable.Bundles.Add(supportRequestStylesBundle);
+
+            var supportRequestsBundle = new ScriptBundle("~/Scripts/supportrequests")
+                .Include("~/Scripts/jquery-ui-{version}.js")
+                .Include("~/Scripts/moment.js")
+                .Include("~/Scripts/knockout-2.2.1.js")
+                .Include("~/Scripts/knockout.mapping-latest.js")
+                .Include("~/Scripts/knockout-projections.js")
+                .Include("~/Scripts/supportrequests.js");
+            BundleTable.Bundles.Add(supportRequestsBundle);
         }
 
         private static void AppPostStart(IAppConfiguration configuration)
         {
+            WebApiConfig.Register(GlobalConfiguration.Configuration);
+            NuGetODataConfig.Register(GlobalConfiguration.Configuration);
+
+            // Attach correlator
+            GlobalConfiguration.Configuration.MessageHandlers.Add(new WebApiCorrelationHandler());
+
             Routes.RegisterRoutes(RouteTable.Routes, configuration.FeedOnlyMode);
-            Routes.RegisterServiceRoutes(RouteTable.Routes);
             AreaRegistration.RegisterAllAreas();
 
             GlobalFilters.Filters.Add(new SendErrorsToTelemetryAttribute { View = "~/Views/Errors/InternalError.cshtml" });
@@ -185,13 +201,7 @@ namespace NuGetGallery
             {
                 indexer.RegisterBackgroundJobs(jobs, configuration);
             }
-            if (!configuration.HasWorker)
-            {
-                jobs.Add(
-                    new UpdateStatisticsJob(TimeSpan.FromMinutes(5),
-                        () => new EntitiesContext(configuration.SqlConnectionString, readOnly: false),
-                        timeout: TimeSpan.FromMinutes(5)));
-            }
+
             if (configuration.CollectPerfLogs)
             {
                 jobs.Add(CreateLogFlushJob());
@@ -212,9 +222,9 @@ namespace NuGetGallery
             {
                 var jobCoordinator = new NuGetJobCoordinator();
                 _jobManager = new JobManager(jobs, jobCoordinator)
-                    {
-                        RestartSchedulerOnFailure = true
-                    };
+                {
+                    RestartSchedulerOnFailure = true
+                };
                 _jobManager.Fail(e => ErrorLog.GetDefault(null).Log(new Error(e)));
                 _jobManager.Start();
             }

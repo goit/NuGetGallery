@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data.Services;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
@@ -12,15 +11,15 @@ using System.Net.Mail;
 using System.Security;
 using System.Security.Claims;
 using System.Security.Principal;
-using System.ServiceModel.Activation;
 using System.Text;
 using System.Web;
 using System.Web.Mvc;
-using System.Web.Routing;
 using System.Web.WebPages;
+using MarkdownSharp;
 using Microsoft.Owin;
 using NuGet.Frameworks;
 using NuGet.Packaging;
+using NuGetGallery.Authentication;
 
 namespace NuGetGallery
 {
@@ -40,18 +39,6 @@ namespace NuGetGallery
             }
             output.MakeReadOnly();
             return output;
-        }
-
-        public static void MapServiceRoute(
-            this RouteCollection routes,
-            string routeName,
-            string routeUrl,
-            Type serviceType)
-        {
-            var serviceRoute = new ServiceRoute(routeUrl, new DataServiceHostFactory(), serviceType);
-            serviceRoute.Defaults = new RouteValueDictionary { { "serviceType", "odata" } };
-            serviceRoute.Constraints = new RouteValueDictionary { { "serviceType", "odata" } };
-            routes.Add(routeName, serviceRoute);
         }
 
         public static string ToStringOrNull(this object obj)
@@ -83,6 +70,60 @@ namespace NuGetGallery
             return String.Empty;
         }
 
+        public static IHtmlString ToMarkdownSafe(this string text)
+        {
+            if (text == null)
+            {
+                return new HtmlString("");
+            }
+
+            var md = new Markdown();
+            var html = md.Transform(text);
+            return new HtmlString(html);
+        }
+
+        public static IEnumerable<PackageDependency> AsPackageDependencyEnumerable(this IEnumerable<PackageDependencyGroup> dependencyGroups)
+        {
+            foreach (var dependencyGroup in dependencyGroups)
+            {
+                if (!dependencyGroup.Packages.Any())
+                {
+                    yield return new PackageDependency
+                    {
+                        Id = null,
+                        VersionSpec = null,
+                        TargetFramework = dependencyGroup.TargetFramework.ToShortNameOrNull()
+                    };
+                }
+                else
+                {
+                    foreach (var dependency in dependencyGroup.Packages.Select(
+                        d => new { d.Id, d.VersionRange, dependencyGroup.TargetFramework }))
+                    {
+                        yield return new PackageDependency
+                        {
+                            Id = dependency.Id,
+                            VersionSpec = dependency.VersionRange?.ToString(),
+                            TargetFramework = dependency.TargetFramework.ToShortNameOrNull()
+                        };
+                    }
+                }
+            }
+        }
+
+        public static IEnumerable<PackageType> AsPackageTypeEnumerable(this IEnumerable<NuGet.Packaging.Core.PackageType> packageTypes)
+        {
+            foreach (var packageType in packageTypes)
+            {
+                yield return new PackageType
+                {
+                    Name = packageType.Name,
+                    Version = packageType.Version.ToString()
+                };
+            }
+
+        }
+
         public static string Flatten(this IEnumerable<string> list)
         {
             if (list == null)
@@ -95,37 +136,13 @@ namespace NuGetGallery
 
         public static string Flatten(this IEnumerable<PackageDependencyGroup> dependencyGroups)
         {
-            var dependencies = new List<dynamic>();
+            return FlattenDependencies(
+                AsPackageDependencyEnumerable(dependencyGroups).ToList());
+        }
 
-            foreach (var dependencyGroup in dependencyGroups)
-            {
-                if (!dependencyGroup.Packages.Any())
-                {
-                    dependencies.Add(
-                        new
-                            {
-                                Id = (string)null,
-                                VersionSpec = (string)null,
-                                TargetFramework =
-                            dependencyGroup.TargetFramework == null ? null : dependencyGroup.TargetFramework.GetShortFolderName()
-                        });
-                }
-                else
-                {
-                    foreach (var dependency in dependencyGroup.Packages.Select(d => new { d.Id, d.VersionRange, dependencyGroup.TargetFramework }))
-                    {
-                        dependencies.Add(
-                            new
-                                {
-                                    dependency.Id,
-                                    VersionSpec = dependency.VersionRange == null ? null : dependency.VersionRange.ToString(),
-                                    TargetFramework =
-                                dependency.TargetFramework == null ? null : dependency.TargetFramework.GetShortFolderName()
-                            });
-                    }
-                }
-            }
-            return FlattenDependencies(dependencies);
+        public static string Flatten(this IEnumerable<PackageType> packageTypes)
+        {
+            return String.Join("|", packageTypes.Select(d => String.Format(CultureInfo.InvariantCulture, "{0}:{1}", d.Name, d.Version)));
         }
 
         public static string Flatten(this ICollection<PackageDependency> dependencies)
@@ -185,7 +202,7 @@ namespace NuGetGallery
         {
             if (package == null)
             {
-                throw new ArgumentNullException("package");
+                throw new ArgumentNullException(nameof(package));
             }
             if (user == null || user.Identity == null)
             {
@@ -198,7 +215,7 @@ namespace NuGetGallery
         {
             if (package == null)
             {
-                throw new ArgumentNullException("package");
+                throw new ArgumentNullException(nameof(package));
             }
             if (user == null)
             {
@@ -217,7 +234,7 @@ namespace NuGetGallery
         {
             if (source == null)
             {
-                throw new ArgumentNullException("source");
+                throw new ArgumentNullException(nameof(source));
             }
 
             int descIndex = sortExpression.IndexOf(" desc", StringComparison.OrdinalIgnoreCase);
@@ -255,6 +272,11 @@ namespace NuGetGallery
 
         public static MailAddress ToMailAddress(this User user)
         {
+            if (!user.Confirmed)
+            {
+                return new MailAddress(user.UnconfirmedEmailAddress, user.Username);
+            }
+
             return new MailAddress(user.EmailAddress, user.Username);
         }
 
@@ -288,7 +310,7 @@ namespace NuGetGallery
         {
             if (frameworkName == null)
             {
-                throw new ArgumentNullException("frameworkName");
+                throw new ArgumentNullException(nameof(frameworkName));
             }
 
             var sb = new StringBuilder();
@@ -301,7 +323,12 @@ namespace NuGetGallery
                 {
                     sb.Append(" (");
 
-                    var profiles = frameworkName.GetShortFolderName().Replace("portable-", string.Empty).Split('+');
+                    var profiles = frameworkName.GetShortFolderName()
+                        .Replace("portable-", string.Empty)
+                        .Replace("portable40-", string.Empty)
+                        .Replace("portable45-", string.Empty)
+                        .Split('+');
+
                     sb.Append(String.Join(", ",
                         profiles.Select(s => NuGetFramework.Parse(s).ToFriendlyName(allowRecurseProfile: false))));
 
@@ -324,10 +351,10 @@ namespace NuGetGallery
                     version = frameworkName.Version.ToString();
                 }
 
-                sb.AppendFormat("{0} {1}", frameworkName.Framework, version);
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{0} {1}", frameworkName.Framework, version);
                 if (!String.IsNullOrEmpty(frameworkName.Profile))
                 {
-                    sb.AppendFormat(" {0}", frameworkName.Profile);
+                    sb.AppendFormat(CultureInfo.InvariantCulture, " {0}", frameworkName.Profile);
                 }
             }
             return sb.ToString();
@@ -346,9 +373,55 @@ namespace NuGetGallery
         public static string GetClaimOrDefault(this IEnumerable<Claim> self, string claimType)
         {
             return self
-                .Where(c => String.Equals(c.Type, claimType, StringComparison.OrdinalIgnoreCase))
+                .Where(c => string.Equals(c.Type, claimType, StringComparison.OrdinalIgnoreCase))
                 .Select(c => c.Value)
                 .FirstOrDefault();
+        }
+
+        public static bool HasScopeThatAllowsActionForSubject(
+            this IIdentity self, 
+            string subject,
+            string[] requestedActions)
+        {
+            var identity = self as ClaimsIdentity;
+
+            if (identity == null)
+            {
+                return false;
+            }
+
+            var scopeClaim = identity.GetClaimOrDefault(NuGetClaims.Scope);
+
+            return ScopeEvaluator.ScopeClaimsAllowsActionForSubject(scopeClaim, subject, requestedActions);
+        }
+
+        public static string GetAuthenticationType(this IIdentity self)
+        {
+            var identity = self as ClaimsIdentity;
+
+            return identity?.GetClaimOrDefault(ClaimTypes.AuthenticationMethod);
+        }
+
+        private static string GetScopeClaim(this IIdentity self)
+        {
+            var identity = self as ClaimsIdentity;
+
+            return identity?.GetClaimOrDefault(NuGetClaims.Scope);
+        }
+
+        public static bool IsScopedAuthentication(this IIdentity self)
+        {
+            var scopeClaim = self.GetScopeClaim();
+
+            return !ScopeEvaluator.IsEmptyScopeClaim(scopeClaim);
+        }
+
+        public static bool HasVerifyScope(this IIdentity self)
+        {
+            var scopeClaim = self.GetScopeClaim();
+
+            return ScopeEvaluator.ScopeClaimsAllowsActionForSubject(scopeClaim, subject: null,
+                requestedActions: new [] { NuGetScopes.PackageVerify });
         }
 
         // This is a method because the first call will perform a database call

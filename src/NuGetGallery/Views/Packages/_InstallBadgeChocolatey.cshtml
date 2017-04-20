@@ -1,0 +1,41 @@
+﻿@model DisplayPackageViewModel
+
+<p>
+  To install @Model.Title, run the following command from the command line or from PowerShell:
+</p>
+
+<div class="chocolatey-badge">
+    <p>
+        <code>
+            choco install @Model.Id
+            @if (!Model.LatestVersion || !Model.Listed)
+            {
+                <text> -version @Model.Version</text>
+            }
+            @if (Model.Prerelease)
+            {
+                <text> -pre</text>
+            }
+        </code>
+    </p>
+</div>
+
+<p>
+  To upgrade @Model.Title, run the following command from the command line or from PowerShell:
+</p>
+
+<div class="chocolatey-badge">
+    <p>
+        <code>
+            choco upgrade @Model.Id
+            @if (!Model.LatestVersion || !Model.Listed)
+            {
+                <text> -version @Model.Version</text>
+            }
+            @if (Model.Prerelease)
+            {
+                <text> -pre</text>
+            }
+        </code>
+    </p>
+</div>

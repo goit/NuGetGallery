@@ -10,10 +10,11 @@ namespace NuGetGallery.Configuration
 {
     public class AppConfiguration : IAppConfiguration
     {
-        public bool HasWorker { get; set; }
-
         [DefaultValue("Development")]
         public string Environment { get; set; }
+
+        [DefaultValue("")]
+        public string WarningBanner { get; set; }
 
         /// <summary>
         /// Gets a setting indicating if SSL is required for all operations once logged in.
@@ -51,11 +52,6 @@ namespace NuGetGallery.Configuration
         /// Gets the @type for the Autocomplete endpoint
         /// </summary>
         public string AutocompleteServiceResourceType { get; set; }
-
-        /// <summary>
-        /// Gets the URI to the metrics service
-        /// </summary>
-        public Uri MetricsServiceUri { get; set; }
 
         /// <summary>
         /// Gets a boolean indicating if the site requires that email addresses be confirmed
@@ -97,6 +93,12 @@ namespace NuGetGallery.Configuration
         public MailAddress GalleryOwner { get; set; }
 
         /// <summary>
+        /// Gets the gallery e-mail from name and email address
+        /// </summary>
+        [TypeConverter(typeof(MailAddressConverter))]
+        public MailAddress GalleryNoReplyAddress { get; set; }
+
+        /// <summary>
         /// Gets the storage mechanism used by this instance of the gallery
         /// </summary>
         [DefaultValue(StorageType.NotSpecified)]
@@ -115,6 +117,14 @@ namespace NuGetGallery.Configuration
         [DisplayName("SqlServer")]
         [DefaultValue("NuGetGallery")]
         public string SqlConnectionString { get; set; }
+
+        /// <summary>
+        /// Gets the SQL Connection string used to connect to the database for support requests
+        /// </summary>
+        [Required]
+        [DisplayName("SupportRequestSqlServer")]
+        [DefaultValue("NuGetGallery")]
+        public string SqlConnectionStringSupportRequest { get; set; }
 
         /// <summary>
         /// Gets the host name of the Azure CDN being used
@@ -156,5 +166,54 @@ namespace NuGetGallery.Configuration
         /// </summary>
         [DefaultValue(true)]
         public bool AutoUpdateSearchIndex { get; set; }
+
+        /// <summary>
+        /// Gets a string indicating which authentication provider(s) are supported for administrators. 
+        /// When specified, the gallery will ensure admin users are logging in using any of the specified authentication providers.
+        /// Blank means any authentication provider can be used by administrators.
+        /// </summary>
+        public string EnforcedAuthProviderForAdmin { get; set; }
+
+        /// <summary>
+        /// A regex to validate password format. The default regex requires the password to be atlease 8 characters, 
+        /// include at least one uppercase letter, one lowercase letter and a digit.
+        /// </summary>
+        [Required]
+        [DefaultValue("^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{8,64}$")]
+        public string UserPasswordRegex { get; set; }
+
+        [Required]
+        [DefaultValue("Your password must be at least 8 characters, should include at least one uppercase letter, one lowercase letter and a digit.")]
+        public string UserPasswordHint { get; set; }
+
+        /// <summary>
+        /// Defines the time after which V1 API keys expire.
+        /// </summary>
+        public int ExpirationInDaysForApiKeyV1 { get; set; }
+
+        /// <summary>
+        /// Defines the number of days before the API key expires when the server should emit a warning to the client.
+        /// </summary>
+        public int WarnAboutExpirationInDaysForApiKeyV1 { get; set; }
+
+        /// <summary>
+        /// Gets a string containing the PagerDuty account name.
+        /// </summary>
+        public string PagerDutyAccountName { get; set; }
+
+        /// <summary>
+        /// Gets a string containing the PagerDuty API key.
+        /// </summary>
+        public string PagerDutyAPIKey { get; set; }
+
+        /// <summary>
+        /// Gets a string containing the PagerDuty Service key.
+        /// </summary>
+        public string PagerDutyServiceKey { get; set; }
+
+        /// <summary>
+        /// Gets/sets a bool that indicates if the OData requests will be filtered.
+        /// </summary>
+        public bool IsODataFilterEnabled { get; set; }
     }
 }

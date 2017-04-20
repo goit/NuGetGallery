@@ -4,12 +4,12 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
 namespace NuGetGallery
 {
-    public class User
-        : IEntity
+    public class User : IEntity
     {
         public User() : this(null)
         {
@@ -37,6 +37,9 @@ namespace NuGetGallery
         public virtual ICollection<Role> Roles { get; set; }
         public bool EmailAllowed { get; set; }
 
+        [DefaultValue(true)]
+        public bool NotifyPackagePushed { get; set; }
+
         public bool Confirmed
         {
             get { return !String.IsNullOrEmpty(EmailAddress); }
@@ -52,6 +55,10 @@ namespace NuGetGallery
         public int Key { get; set; }
 
         public DateTime? CreatedUtc { get; set; }
+
+        public DateTime? LastFailedLoginUtc { get; set; }
+
+        public int FailedLoginCount { get; set; }
 
         public string LastSavedEmailAddress
         {
@@ -104,6 +111,11 @@ namespace NuGetGallery
         {
             return Credentials.Any(c =>
                 c.Type.StartsWith(CredentialTypes.Password.Prefix, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public bool IsInRole(string roleName)
+        {
+            return Roles.Any(r => String.Equals(r.Name, roleName, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

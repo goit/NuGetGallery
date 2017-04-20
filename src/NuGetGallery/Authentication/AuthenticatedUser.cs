@@ -1,9 +1,7 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace NuGetGallery.Authentication
 {
@@ -16,12 +14,12 @@ namespace NuGetGallery.Authentication
         {
             if (user == null)
             {
-                throw new ArgumentNullException("user");
+                throw new ArgumentNullException(nameof(user));
             }
 
             if (cred == null)
             {
-                throw new ArgumentNullException("cred");
+                throw new ArgumentNullException(nameof(cred));
             }
             
             User = user;

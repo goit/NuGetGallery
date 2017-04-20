@@ -34,5 +34,10 @@ namespace NuGetGallery.FunctionalTests
         public const string PackageDownloadFailureMessage = "Package download from V2 feed didnt work";
         public const string UnableToZipError = "Unable to unzip the package downloaded via V2 feed. Check log for details";
         public const string NuGetOrgUrl = "https://www.nuget.org";
+
+        public static class Category
+        {
+            public const string StatisticsService = "StatisticsService";
+        }
     }
 }

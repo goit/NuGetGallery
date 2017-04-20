@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Web.Mvc;
 using NuGetGallery.Configuration;
 using Owin;
@@ -13,8 +14,8 @@ namespace NuGetGallery.Authentication.Providers
 {
     public abstract class Authenticator
     {
-        private static readonly Regex _nameShortener = new Regex(@"^(?<shortname>[A-Za-z0-9_]*)Authenticator$");
-        private static readonly string AuthPrefix = "Auth.";
+        public const string AuthPrefix = "Auth.";
+        private static readonly Regex NameShortener = new Regex(@"^(?<shortname>[A-Za-z0-9_]*)Authenticator$");
 
         public AuthenticatorConfiguration BaseConfig { get; private set; }
 
@@ -28,9 +29,9 @@ namespace NuGetGallery.Authentication.Providers
             BaseConfig = CreateConfigObject();
         }
 
-        public void Startup(ConfigurationService config, IAppBuilder app)
+        public async Task Startup(IGalleryConfigurationService config, IAppBuilder app)
         {
-            Configure(config);
+            await Configure(config);
 
             if (BaseConfig.Enabled)
             {
@@ -38,18 +39,18 @@ namespace NuGetGallery.Authentication.Providers
             }
         }
 
-        protected virtual void AttachToOwinApp(ConfigurationService config, IAppBuilder app) { }
+        protected virtual void AttachToOwinApp(IGalleryConfigurationService config, IAppBuilder app) { }
 
         // Configuration Logic
-        public virtual void Configure(ConfigurationService config)
+        protected virtual async Task Configure(IGalleryConfigurationService config)
         {
-            BaseConfig = config.ResolveConfigObject(BaseConfig, AuthPrefix + Name + ".");
+            BaseConfig = await config.ResolveConfigObject(BaseConfig, AuthPrefix + Name + ".");
         }
 
         public static string GetName(Type authenticator)
         {
             var name = authenticator.Name;
-            var match = _nameShortener.Match(name);
+            var match = NameShortener.Match(name);
             if (match.Success)
             {
                 name = match.Groups["shortname"].Value;
@@ -92,17 +93,17 @@ namespace NuGetGallery.Authentication.Providers
         {
             return new HttpUnauthorizedResult();
         }
-    }
 
-    public abstract class Authenticator<TConfig> : Authenticator
-        where TConfig : AuthenticatorConfiguration, new()
-    {
-        public TConfig Config { get; private set; }
-
-        protected internal override AuthenticatorConfiguration CreateConfigObject()
+        public virtual bool TryMapIssuerToAuthenticationType(string issuer, out string authenticationType)
         {
-            Config = new TConfig();
-            return Config;
+            if (string.Equals(issuer, BaseConfig.AuthenticationType, StringComparison.OrdinalIgnoreCase))
+            {
+                authenticationType = BaseConfig.AuthenticationType;
+                return true;
+            }
+
+            authenticationType = null;
+            return false;
         }
     }
 }

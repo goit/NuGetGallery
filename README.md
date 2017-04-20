@@ -1,4 +1,4 @@
-[NuGet Gallery](http://nuget.org/) — Where packages are found 
+NuGet Gallery for Companies
 =======================================================================
 
 [![Build status](https://ci.appveyor.com/api/projects/status/6ob8lbutfecvi5n3/branch/master?svg=true)](https://ci.appveyor.com/project/NuGetteam/nugetgallery/branch/master)
@@ -6,13 +6,15 @@
 This is an implementation of the NuGet Gallery and API. This serves as the back-end and community 
 website for the NuGet client. For information about the NuGet project, visit the [Home repository](https://github.com/nuget/home).
 
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
 ## Build and Run the Gallery in (arbitrary number) easy steps
 
 1. Prerequisites. Install these if you don't already have them:
- 1. Visual Studio 2015
+ 1. Visual Studio 2015 - Custom install so that you may also install Microsoft SQL Server Data Tools. This will provide the LocalDB that Windows Azure SDK requires.
  2. PowerShell 2.0 (comes with Windows 7+)
  3. [NuGet](http://docs.nuget.org/docs/start-here/installing-nuget)
- 4. [Windows Azure SDK](http://www.microsoft.com/windowsazure/sdk/) - Note that you may have to manually upgrade the ".Cloud" projects in the solution if a different SDK version is used.
+ 4. [Windows Azure SDK](http://www.microsoft.com/windowsazure/sdk/)
 2. Clone it!
     
     ```git clone git@github.com:NuGet/NuGetGallery.git```
@@ -24,21 +26,39 @@ website for the NuGet client. For information about the NuGet project, visit the
     ```
 4. Set up the website in IIS Express!
  1. We highly recommend using IIS Express. Use the [Web Platform Installer](http://microsoft.com/web) to install it if you don't have it already (it comes with recent versions of VS and WebMatrix though). Make sure to at least once run IIS Express as an administrator.
- 2. In an ADMIN powershell prompt, run the `.\tools\Enable-LocalTestMe.ps1` file. It allows non-admins to host websites at: `http(s)://nuget.localtest.me`, it configures an IIS Express site at that URL and creates a self-signed SSL certificate. For more information on `localtest.me`, check out [readme.localtest.me](http://readme.localtest.me).
+ 2. In an ADMIN powershell prompt, run the `.\tools\Enable-LocalTestMe.ps1` file. It allows non-admins to host websites at: `http(s)://nuget.localtest.me`, it configures an IIS Express site at that URL and creates a self-signed SSL certificate. For more information on `localtest.me`, check out [readme.localtest.me](http://readme.localtest.me). However, because [Server Name Indication](https://en.wikipedia.org/wiki/Server_Name_Indication) is not supported in the Network Shell on versions of Windows before 8, you must have at least Windows 8 to run this script successfully.
  3. If you're having trouble, go to the _Project Properties_ for the Website project, click on the _Web_ tab and change the URL to `localhost:port` where _port_ is some port number above 1024.
- 4. When running the application using the Azure Compute emulator, you may have to edit the `.\src\NuGetGallery.Cloud\ServiceConfiguration.Local.cscfg` file and set the certificate thumbprint for the setting `SSLCertificate` to the certificate thumbprint of the generated `nuget.localtest.me` certificate from step 2. You can get a list of certificates and their thumbprints using PowerShell, running `Get-ChildItem -path cert:\LocalMachine\My`.
-
-5. Create the Database!
- 1. Open Visual Studio 2015
- 2. Open the Package Manager Console window
- 3. Ensure that the Default Project is set to `NuGetGallery`
- 4. Open the NuGetGallery.sln solution from the root of this repository. ***Important:*** Make sure the Package Manager Console has been opened once before you open the solution. If the solution was already open, open the package manager console and then close and re-open the solution (from the file menu)
- 5. Run the following command in the Package Manager Console:
  
-    ```
-    Update-Database -StartUpProjectName NuGetGallery
-    ```
-If this fails, you are likely to get more useful output by passing `-Debug` than `-Verbose`.
+5. Create the Database!
+  
+  There are two ways you can create the databases. From Visual Studio 2015 or from the command line.
+  
+  1. From Visual Studio 2015
+    1. Open Visual Studio 2015
+    2. Open the Package Manager Console window
+    3. Ensure that the Default Project is set to `NuGetGallery`
+    4. Open the NuGetGallery.sln solution from the root of this repository. ***Important:*** Make sure the Package Manager Console has been opened once before you open the solution. If the solution was already open, open the package manager console and then close and re-open the solution (from the file menu)
+    5. Run the following command in the Package Manager Console:
+    
+       ``` powershell
+       Update-Database -StartUpProjectName NuGetGallery -ConfigurationTypeName MigrationsConfiguration
+       ```
+    If this fails, you are likely to get more useful output by passing `-Debug` than `-Verbose`.
+  2. From the command line. ***Important:*** You must have successfully built the Gallery (step 3) for this to succeed.
+    * Run `Update-Databases.ps1` in the `tools` folder to migrate the databases to the latest version.
+      * To Update both databases, Nuget Gallery and Support Request, run this command
+        ``` powershell
+        .\tools\Update-Databases.ps1 -MigrationTargets NugetGallery,NugetGallerySupportRequest
+        ```
+      * To update only the Nuget Gallery DB, run this
+        ``` powershell
+        .\tools\Update-Databases.ps1 -MigrationTargets NugetGallery
+        ```
+      * And to update only the Support Request DB, run this
+        ``` powershell
+        .\tools\Update-Databases.ps1 -MigrationTargets NugetGallerySupportRequest
+        ```
+    * Additionally you can provide a `-NugetGallerySitePath` parameter to the `Update-Databases.ps1` script to indicate that you want to perform the migration on a site other than the one that is built with this repository.
 
 6. When working with the gallery, e-mail messages are saved to the file system (under `~/App_Data`).
     * To change this to use an SMTP server, edit `src\NuGetGallery\Web.Config` and add a `Gallery.SmtpUri` setting. Its value should be an SMTP connection string, for example `smtp://user:password@smtpservername:25`.
@@ -49,6 +69,20 @@ If this fails, you are likely to get more useful output by passing `-Debug` than
 
 That's it! You should now be able to press Ctrl-F5 to run the site!
 
+Be aware that you might detect a change in the __applicationhost.config__:
+
+Unfortunately Visual Studio will replace the relative path with an absolute path. The committed applicationhost.config-file is currently the easiest way to setup the localtest.me-binding for IIS Express.
+
+However, you can force Git to ignore the change with this command:
+
+    git update-index --assume-unchanged .vs/config/applicationhost.config
+
+You can undo this with this command:
+
+	git update-index --no-assume-unchanged .vs/config/applicationhost.config
+
+This should help to prevent unwanted file commits.
+	
 ## Contribute
 If you find a bug with the gallery, please visit the [Issue tracker](https://github.com/NuGet/NuGetGallery/issues) and 
 create an issue. If you're feeling generous, please search to see if the issue is already logged before creating a 
@@ -65,13 +99,13 @@ Does it happen when you switch browsers. And so on.
 
 ## Submit a patch
 Before starting work on an issue, either create an issue or comment on an existing issue to ensure that we're all 
-communicating.
+communicating. We have a list of items that are [up for grabs](https://github.com/NuGet/NuGetGallery/issues?q=is%3Aopen+is%3Aissue+label%3A%22Up+for+Grabs%22) and you can start working on (but always ping us beforehand).
 
 To contribute to the gallery, make sure to create a fork first. Make your changes in the fork following 
 the Git Workflow. When you are done with your changes, send us a pull request.
 
 ## Copyright and License
-Copyright 2015 .NET Foundation
+Copyright .NET Foundation
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this work except in compliance with 
 the License. You may obtain a copy of the License in the LICENSE file, or at:
@@ -88,7 +122,8 @@ This is the Git workflow we're currently using:
 
 ### Setting up
 
-1. Clone and checkout the following branches (to make sure local copies are made): 'master'.
+1. Clone and checkout the following branches (to make sure local copies are made): '
+2. '.
 
 ### When starting a new feature/unit of work.
     
@@ -97,16 +132,16 @@ This is the Git workflow we're currently using:
     This assumes you have no local commits that haven't yet been pushed (i.e., that you were 
     previously up-to-date with origin).
     
-        git checkout master
-        git pull master
+        git checkout dev
+        git pull dev
     
 2.  __Create a topic branch to do your work.__
     You must work in topic branches, in order to help us keep our features isolated and easily moved between branches.
-    Our policy is to start all topic branches off of the 'master' branch. 
+    Our policy is to start all topic branches off of the 'dev' branch. 
     Branch names should use the following format '[user]-[bugnumber]-[shortdescription]'. If there is no bug yet, 
     create one and assign it to yourself!
 
-        git checkout master
+        git checkout dev
         git checkout -b anurse-123-makesuckless
     
 3.  __Do your work.__
@@ -126,19 +161,19 @@ This is the Git workflow we're currently using:
 
 4.  __Start a code review.__
     Start a code review by pushing your branch up to GitHub (```git push origin anurse-123-makesuckless```) and 
-    creating a Pull Request from your branch to ***master***. Wait for at least someone on the team to respond with: ":shipit:" (that's called the
+    creating a Pull Request from your branch to ***dev***. Wait for at least someone on the team to respond with: ":shipit:" (that's called the
     "Ship-It Squirrel" and you can put it in your own comments by typing ```:shipit:```).
 
-5.  __Merge your changes in to master.__
-    Click the bright green "Merge" button on your pull request! **NOTE: DO NOT DELETE THE TOPIC BRANCH!!**
+5.  __Merge your changes in to dev.__
+    Click the bright green "Merge" button on your pull request! Don't forget to delete the branch afterwards to keep our repo clean.
 
     If there isn't a bright green button... well, you'll have to do some more complicated merging:
 
-        git checkout master
-        git pull origin master
+        git checkout dev
+        git pull origin dev
         git merge anurse-123-makesuckless
         ... resolve conflicts ...
-        git push origin master
+        git push origin dev
     
 6.  __Be ready to guide your change through QA, Staging and Prod__
     Your change will make its way through the QA, Staging and finally Prod branches as it's deployed to the various environments. Be prepared to fix additional bugs!

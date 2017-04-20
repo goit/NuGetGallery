@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Versioning;
@@ -17,9 +18,9 @@ namespace NuGetGallery
         {
         }
 
-        public override void Curate(
+        public override async Task CurateAsync(
             Package galleryPackage,
-            PackageReader nugetPackage,
+            PackageArchiveReader nugetPackage,
             bool commitChanges)
         {
             var curatedFeed = CuratedFeedService.GetFeedByName("webmatrix", includePackages: true);
@@ -31,7 +32,7 @@ namespace NuGetGallery
             var shouldBeIncluded = ShouldCuratePackage(curatedFeed, galleryPackage, nugetPackage);
             if (shouldBeIncluded)
             {
-                CuratedFeedService.CreatedCuratedPackage(
+                await CuratedFeedService.CreatedCuratedPackageAsync(
                     curatedFeed,
                     galleryPackage.PackageRegistration,
                     included: true,
@@ -41,13 +42,13 @@ namespace NuGetGallery
         }
 
         internal static bool ShouldCuratePackage(
-            CuratedFeed curatedFeed, 
+            CuratedFeed curatedFeed,
             Package galleryPackage,
-            PackageReader nugetPackage)
+            PackageArchiveReader packageArchiveReader)
         {
-            var nuspec = nugetPackage.GetNuspecReader();
+            var nuspec = packageArchiveReader.GetNuspecReader();
 
-            return 
+            return
                 // Must have min client version of null or <= 2.2
                 (nuspec.GetMinClientVersion() == null || nuspec.GetMinClientVersion() <= new NuGetVersion(2, 2, 0)) &&
 
@@ -61,8 +62,8 @@ namespace NuGetGallery
                     // Must have AspNetWebPages tag
                     ContainsAspNetWebPagesTag(galleryPackage) ||
 
-                    // OR: Must not contain powershell or T4
-                    DoesNotContainUnsupportedFiles(nugetPackage)
+                    // OR: Must not contain PowerShell or T4
+                    DoesNotContainUnsupportedFiles(packageArchiveReader)
                 ) &&
 
                 // Dependencies on the gallery must be curated
@@ -86,7 +87,7 @@ namespace NuGetGallery
                 .Any();
         }
 
-        private static bool DoesNotContainUnsupportedFiles(PackageReader nugetPackage)
+        private static bool DoesNotContainUnsupportedFiles(PackageArchiveReader nugetPackage)
         {
             foreach (var filePath in nugetPackage.GetFiles())
             {

@@ -13,13 +13,14 @@ namespace NuGetGallery
         : IEntity
     {
 
-#pragma warning disable 618 // TODO: remove Package.Authors completely once prodution services definitely no longer need it
+#pragma warning disable 618 // TODO: remove Package.Authors completely once production services definitely no longer need it
         public Package()
         {
             Authors = new HashSet<PackageAuthor>();
             Dependencies = new HashSet<PackageDependency>();
             PackageEdits = new HashSet<PackageEdit>();
             PackageHistories = new HashSet<PackageHistory>();
+            PackageTypes = new HashSet<PackageType>();
             SupportedFrameworks = new HashSet<PackageFramework>();
             Listed = true;
         }
@@ -27,8 +28,6 @@ namespace NuGetGallery
 
         public PackageRegistration PackageRegistration { get; set; }
         public int PackageRegistrationKey { get; set; }
-
-        public virtual ICollection<PackageStatistics> DownloadStatistics { get; set; }
 
         [Obsolete("Will be removed in a future iteration, for now is write-only")]
         public virtual ICollection<PackageAuthor> Authors { get; set; }
@@ -42,6 +41,8 @@ namespace NuGetGallery
         public DateTime Created { get; set; }
 
         public virtual ICollection<PackageDependency> Dependencies { get; set; }
+
+        public virtual ICollection<PackageType> PackageTypes { get; set; }
 
         /// <remarks>
         ///     Has a max length of 4000. Is not indexed but *IS* used for searches. Db column is nvarchar(max).
@@ -87,6 +88,10 @@ namespace NuGetGallery
 
         /// <summary>
         /// This is when the Package Metadata was last edited by a user. Or NULL. In UTC.
+        /// 
+        /// This field is updated by a trigger on the database if it is edited.
+        /// This trigger is defined by a migration named "AddTriggerForPackagesLastEdited".
+        /// The trigger guarantees that the timestamps of multiple instances of the gallery do not conflict.
         /// </summary>
         public DateTime? LastEdited { get; set; }
 
@@ -141,7 +146,7 @@ namespace NuGetGallery
 
         public virtual ICollection<PackageLicenseReport> LicenseReports { get; set; }
 
-        // Pre-calcuated data for the feed
+        // Pre-calculated data for the feed
         public string LicenseNames { get; set; }
         public string LicenseReportUrl { get; set; }
 
@@ -152,6 +157,9 @@ namespace NuGetGallery
         public string FlattenedAuthors { get; set; }
 
         public string FlattenedDependencies { get; set; }
+
+        public string FlattenedPackageTypes { get; set; }
+
         public int Key { get; set; }
 
         [StringLength(44)]

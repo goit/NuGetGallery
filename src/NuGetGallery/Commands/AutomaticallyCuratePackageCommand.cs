@@ -3,15 +3,16 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using NuGet.Packaging;
 
 namespace NuGetGallery
 {
     public interface IAutomaticallyCuratePackageCommand
     {
-        void Execute(
+        Task ExecuteAsync(
             Package galleryPackage,
-            PackageReader nugetPackage,
+            PackageArchiveReader nugetPackage,
             bool commitChanges);
     }
 
@@ -25,11 +26,11 @@ namespace NuGetGallery
             _curators = curators.ToList();
         }
 
-        public void Execute(Package galleryPackage, PackageReader nugetPackage, bool commitChanges)
+        public async Task ExecuteAsync(Package galleryPackage, PackageArchiveReader nugetPackage, bool commitChanges)
         {
             foreach (var curator in _curators)
             {
-                curator.Curate(galleryPackage, nugetPackage, commitChanges: commitChanges);
+                await curator.CurateAsync(galleryPackage, nugetPackage, commitChanges: commitChanges);
             }
         }
     }

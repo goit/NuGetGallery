@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -40,13 +39,13 @@ namespace NuGet.Services.Search.Client
 
         public async Task<string> GetStringAsync(IEnumerable<Uri> endpoints)
         {
-            var response = await GetWithRetry(endpoints, _httpClient).ConfigureAwait(false);
-            return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var response = await GetWithRetry(endpoints, _httpClient);
+            return await response.Content.ReadAsStringAsync();
         }
 
         public async Task<HttpResponseMessage> GetAsync(IEnumerable<Uri> endpoints)
         {
-            return await GetWithRetry(endpoints, _httpClient).ConfigureAwait(false);
+            return await GetWithRetry(endpoints, _httpClient);
         }
 
         private async Task<HttpResponseMessage> GetWithRetry(IEnumerable<Uri> endpoints, HttpClient httpClient)
@@ -68,14 +67,14 @@ namespace NuGet.Services.Search.Client
             // Create requests queue
             var tasks = CreateRequestQueue(healthyEndpoints, httpClient, cancellationTokenSource);
 
-            // When the first succesful task comes in, return it. If no succesfull tasks are returned, throw an AggregateException.
+            // When the first successful task comes in, return it. If no successful tasks are returned, throw an AggregateException.
             var exceptions = new List<Exception>();
 
             var taskList = tasks.ToList();
             Task<HttpResponseMessage> completedTask;
             do
             {
-                completedTask = await Task.WhenAny(taskList).ConfigureAwait(false);
+                completedTask = await Task.WhenAny(taskList);
                 taskList.Remove(completedTask);
 
                 if (completedTask.Exception != null)
@@ -102,7 +101,7 @@ namespace NuGet.Services.Search.Client
                 }
                 throw new AggregateException(exceptions);
             }
-            return await completedTask.ConfigureAwait(false);
+            return await completedTask;
         }
         
         private IEnumerable<Task<HttpResponseMessage>> CreateRequestQueue(List<Uri> endpoints, HttpClient httpClient, CancellationTokenSource cancellationTokenSource)
@@ -122,7 +121,7 @@ namespace NuGet.Services.Search.Client
                     {
                         try
                         {
-                            var responseMessage = await httpClient.GetAsync(endpoint, cancellationTokenSource.Token).ConfigureAwait(false);
+                            var responseMessage = await httpClient.GetAsync(endpoint, cancellationTokenSource.Token);
                             
                             if (responseMessage != null && !responseMessage.IsSuccessStatusCode)
                             {

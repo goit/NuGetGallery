@@ -1,38 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
+﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using NuGet.Services.Search.Client;
 using Xunit;
 
 namespace NuGetGallery.SearchClient
 {
-    public class RequestInspectingHandler
-        : DelegatingHandler
-    {
-        public List<HttpRequestMessage> Requests { get; private set; }
-
-        public RequestInspectingHandler()
-        {
-            Requests = new List<HttpRequestMessage>();
-            InnerHandler = new HttpClientHandler();
-        }
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Requests.Add(request);
-
-            return base.SendAsync(request, cancellationToken);
-        }
-    }
-
     public class RetryingHttpClientWrapperFacts
     {
         private static readonly Uri ValidUri1 = new Uri("http://www.microsoft.com");
-        private static readonly Uri ValidUri2 = new Uri("http://www.bing.com");
+        private static readonly Uri ValidUri2 = new Uri("http://www.nuget.org");
         private static readonly Uri InvalidUri1 = new Uri("http://nonexisting.domain.atleast.ihope");
         private static readonly Uri InvalidUri2 = new Uri("http://nonexisting.domain.atleast.ihope/foo");
         private static readonly Uri InvalidUri3 = new Uri("http://www.nuget.org/com/ibm/mq/com.ibm.mq.soap/7.0.1.10/com.ibm.mq.soap-7.0.1.10");
@@ -101,7 +83,7 @@ namespace NuGetGallery.SearchClient
             bool hasHitUri2 = false;
 
             int numRequests = 0;
-            while (!hasHitUri1 || !hasHitUri2 || numRequests < 25)
+            while ((!hasHitUri1 || !hasHitUri2) && numRequests < 25)
             {
                 numRequests++;
                 var result = await client.GetStringAsync(new[] { ValidUri1, ValidUri2 });
@@ -125,7 +107,7 @@ namespace NuGetGallery.SearchClient
             bool hasHitUri2 = false;
 
             int numRequests = 0;
-            while (!hasHitUri1 || !hasHitUri2 || numRequests < 25)
+            while ((!hasHitUri1 || !hasHitUri2) && numRequests < 25)
             {
                 numRequests++;
                 var result = await client.GetAsync(new[] { ValidUri1, ValidUri2 });

@@ -1,20 +1,15 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Security.Claims;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Owin;
 using Microsoft.Owin.Logging;
 using Microsoft.Owin.Security;
-using Microsoft.Owin.Security.Infrastructure;
 using Moq;
 using NuGetGallery.Framework;
+using NuGetGallery.Infrastructure.Authentication;
 using Xunit;
-using Xunit.Extensions;
 
 namespace NuGetGallery.Authentication.Providers.ApiKey
 {
@@ -117,7 +112,7 @@ namespace NuGetGallery.Authentication.Providers.ApiKey
                 });
                 handler.OwinContext.Response.StatusCode = 401;
                 handler.OwinContext.Response.Headers.Set("WWW-Authenticate", "existing");
-                handler.OwinContext.Authentication.AuthenticationResponseChallenge = 
+                handler.OwinContext.Authentication.AuthenticationResponseChallenge =
                     new AuthenticationResponseChallenge(new [] { "blarg" }, new AuthenticationProperties());
 
                 // Act
@@ -131,7 +126,7 @@ namespace NuGetGallery.Authentication.Providers.ApiKey
 
                 var authenticateValues = handler.OwinContext.Response.Headers.GetCommaSeparatedValues("WWW-Authenticate");
                 Assert.Contains(
-                    "ApiKey realm=\"nuget.local\"", 
+                    "ApiKey realm=\"nuget.local\"",
                     authenticateValues);
                 Assert.Contains(
                     "existing",
@@ -170,7 +165,7 @@ namespace NuGetGallery.Authentication.Providers.ApiKey
             {
                 // Arrange
                 TestableApiKeyAuthenticationHandler handler = await TestableApiKeyAuthenticationHandler.CreateAsync(new ApiKeyAuthenticationOptions());
-                
+
                 // Act
                 var ticket = await handler.InvokeAuthenticateCoreAsync();
 
@@ -199,33 +194,35 @@ namespace NuGetGallery.Authentication.Providers.ApiKey
             public async Task GivenMatchingApiKey_ItReturnsTicketWithUserNameAndRoles()
             {
                 // Arrange
-                Guid apiKey = Guid.NewGuid();
-                var user = new User() { Username = "theUser", EmailAddress = "confirmed@example.com" };
-                TestableApiKeyAuthenticationHandler handler = await TestableApiKeyAuthenticationHandler.CreateAsync(new ApiKeyAuthenticationOptions());
+                var user = new User { Username = "theUser", EmailAddress = "confirmed@example.com" };
+                var handler = await TestableApiKeyAuthenticationHandler.CreateAsync(new ApiKeyAuthenticationOptions());
+                var apiKeyCredential = new CredentialBuilder().CreateApiKey(Fakes.ExpirationForApiKeyV1);
+
                 handler.OwinContext.Request.Headers.Set(
                     Constants.ApiKeyHeaderName,
-                    apiKey.ToString().ToLowerInvariant());
-                handler.MockAuth.SetupAuth(CredentialBuilder.CreateV1ApiKey(apiKey), user);
+                    apiKeyCredential.Value.ToLowerInvariant());
+                handler.MockAuth.SetupAuth(apiKeyCredential, user);
 
                 // Act
                 var ticket = await handler.InvokeAuthenticateCoreAsync();
 
                 // Assert
                 Assert.NotNull(ticket);
-                Assert.Equal(apiKey.ToString().ToLower(), ticket.Identity.GetClaimOrDefault(NuGetClaims.ApiKey));
+                Assert.Equal(apiKeyCredential.Value.ToLower(), ticket.Identity.GetClaimOrDefault(NuGetClaims.ApiKey));
             }
 
             [Fact]
             public async Task GivenMatchingApiKey_ItSetsUserInOwinEnvironment()
             {
                 // Arrange
-                Guid apiKey = Guid.NewGuid();
-                var user = new User() { Username = "theUser", EmailAddress = "confirmed@example.com" };
+                var user = new User { Username = "theUser", EmailAddress = "confirmed@example.com" };
                 TestableApiKeyAuthenticationHandler handler = await TestableApiKeyAuthenticationHandler.CreateAsync(new ApiKeyAuthenticationOptions());
+                var apiKeyCredential = new CredentialBuilder().CreateApiKey(Fakes.ExpirationForApiKeyV1);
+
                 handler.OwinContext.Request.Headers.Set(
                     Constants.ApiKeyHeaderName,
-                    apiKey.ToString().ToLowerInvariant());
-                handler.MockAuth.SetupAuth(CredentialBuilder.CreateV1ApiKey(apiKey), user);
+                    apiKeyCredential.Value.ToLowerInvariant());
+                handler.MockAuth.SetupAuth(apiKeyCredential, user);
 
                 // Act
                 await handler.InvokeAuthenticateCoreAsync();
@@ -248,6 +245,7 @@ namespace NuGetGallery.Authentication.Providers.ApiKey
             {
                 Logger = (MockLogger = new Mock<ILogger>()).Object;
                 Auth = (MockAuth = new Mock<AuthenticationService>()).Object;
+                CredentialBuilder = new CredentialBuilder();
             }
 
             public static Task<TestableApiKeyAuthenticationHandler> CreateAsync()

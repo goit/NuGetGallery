@@ -7,11 +7,11 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using System.Web;
+using System.Web.Http;
 using System.Web.Mvc;
 using Elmah;
 using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel;
 using Microsoft.Owin;
 using Microsoft.Owin.Logging;
 using Microsoft.Owin.Security;
@@ -20,6 +20,7 @@ using NuGetGallery.Authentication;
 using NuGetGallery.Authentication.Providers;
 using NuGetGallery.Authentication.Providers.Cookie;
 using NuGetGallery.Configuration;
+using NuGetGallery.Helpers;
 using NuGetGallery.Infrastructure;
 using Owin;
 
@@ -41,7 +42,7 @@ namespace NuGetGallery
             ServicePointManager.Expect100Continue = false;
 
             // Register IoC
-            app.UseAutofacInjection();
+            app.UseAutofacInjection(GlobalConfiguration.Configuration);
             var dependencyResolver = DependencyResolver.Current;
 
             // Register Elmah
@@ -49,7 +50,7 @@ namespace NuGetGallery
             ServiceCenter.Current = _ => elmahServiceCenter;
 
             // Get config
-            var config = dependencyResolver.GetService<ConfigurationService>();
+            var config = dependencyResolver.GetService<IGalleryConfigurationService>();
             var auth = dependencyResolver.GetService<AuthenticationService>();
 
             // Setup telemetry
@@ -58,16 +59,19 @@ namespace NuGetGallery
             {
                 TelemetryConfiguration.Active.InstrumentationKey = instrumentationKey;
 
+                var telemetryProcessorChainBuilder = TelemetryConfiguration.Active.TelemetryProcessorChainBuilder;
+                telemetryProcessorChainBuilder.Use(next => new TelemetryResponseCodeFilter(next));
+
                 // Note: sampling rate must be a factor 100/N where N is a whole number
                 // e.g.: 50 (= 100/2), 33.33 (= 100/3), 25 (= 100/4), ...
                 // https://azure.microsoft.com/en-us/documentation/articles/app-insights-sampling/
                 var instrumentationSamplingPercentage = config.Current.AppInsightsSamplingPercentage;
                 if (instrumentationSamplingPercentage > 0 && instrumentationSamplingPercentage < 100)
                 {
-                    var telemetryProcessorChainBuilder = TelemetryConfiguration.Active.GetTelemetryProcessorChainBuilder();
                     telemetryProcessorChainBuilder.UseSampling(instrumentationSamplingPercentage);
-                    telemetryProcessorChainBuilder.Build();
                 }
+
+                telemetryProcessorChainBuilder.Build();
             }
 
             // Configure logging
@@ -84,11 +88,11 @@ namespace NuGetGallery
             }
 
             // Get the local user auth provider, if present and attach it first
-            Authenticator localUserAuther;
-            if (auth.Authenticators.TryGetValue(Authenticator.GetName(typeof(LocalUserAuthenticator)), out localUserAuther))
+            Authenticator localUserAuthenticator;
+            if (auth.Authenticators.TryGetValue(Authenticator.GetName(typeof(LocalUserAuthenticator)), out localUserAuthenticator))
             {
                 // Configure cookie auth now
-                localUserAuther.Startup(config, app);
+                localUserAuthenticator.Startup(config, app).Wait();
             }
 
             // Attach external sign-in cookie middleware
@@ -111,7 +115,7 @@ namespace NuGetGallery
                 .Select(p => p.Value);
             foreach (var auther in nonCookieAuthers)
             {
-                auther.Startup(config, app);
+                auther.Startup(config, app).Wait();
             }
 
             // Catch unobserved exceptions from threads before they cause IIS to crash:

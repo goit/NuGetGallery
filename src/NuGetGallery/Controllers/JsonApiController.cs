@@ -3,13 +3,15 @@
 
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Web;
 using System.Web.Mvc;
-using MvcHaack.Ajax;
 
 namespace NuGetGallery
 {
+    [Authorize]
     public partial class JsonApiController
-        : JsonController
+        : AppController
     {
         private readonly IMessageService _messageService;
         private readonly IEntityRepository<PackageOwnerRequest> _packageOwnerRequestRepository;
@@ -28,17 +30,18 @@ namespace NuGetGallery
             _messageService = messageService;
         }
 
-        [Authorize]
-        public virtual object GetPackageOwners(string id, string version)
+        [HttpGet]
+        public virtual ActionResult GetPackageOwners(string id, string version)
         {
             var package = _packageService.FindPackageByIdAndVersion(id, version);
             if (package == null)
             {
-                return new { message = "Package not found" };
+                return Json(new { message = "Package not found" });
             }
+
             if (!package.IsOwner(HttpContext.User))
             {
-                return new HttpStatusCodeResult(401, "Unauthorized");
+                return new HttpUnauthorizedResult();
             }
 
             var owners = from u in package.PackageRegistration.Owners
@@ -53,32 +56,35 @@ namespace NuGetGallery
                           where u.PackageRegistrationKey == package.PackageRegistration.Key
                           select new OwnerModel { name = u.NewOwner.Username, current = false, pending = true };
 
-            return owners.Union(pending);
+            return Json(owners.Union(pending), JsonRequestBehavior.AllowGet);
         }
 
-        public object AddPackageOwner(string id, string username)
+        [HttpPost]
+        public async Task<JsonResult> AddPackageOwner(string id, string username, string message)
         {
+            message = HttpUtility.HtmlEncode(message);
+
             var package = _packageService.FindPackageRegistrationById(id);
             if (package == null)
             {
-                return new { success = false, message = "Package not found." };
+                return Json(new { success = false, message = "Package not found." });
             }
             if (!package.IsOwner(HttpContext.User))
             {
-                return new { success = false, message = "You are not the package owner." };
+                return Json(new { success = false, message = "You are not the package owner." });
             }
             var user = _userService.FindByUsername(username);
             if (user == null)
             {
-                return new { success = false, message = "Owner not found." };
+                return Json(new { success = false, message = "Owner not found." });
             }
             if (!user.Confirmed)
             {
-                return new { success = false, message = string.Format(CultureInfo.InvariantCulture, "Sorry, {0} hasn't verified their email account yet and we cannot proceed with the request.", username) };
+                return Json(new { success = false, message = string.Format(CultureInfo.InvariantCulture, "Sorry, {0} hasn't verified their email account yet and we cannot proceed with the request.", username) });
             }
 
             var currentUser = _userService.FindByUsername(HttpContext.User.Identity.Name);
-            var ownerRequest = _packageService.CreatePackageOwnerRequest(package, currentUser, user);
+            var ownerRequest = await _packageService.CreatePackageOwnerRequestAsync(package, currentUser, user);
 
             var confirmationUrl = Url.ConfirmationUrl(
                 "ConfirmOwner",
@@ -86,30 +92,38 @@ namespace NuGetGallery
                 user.Username,
                 ownerRequest.ConfirmationCode,
                 new { id = package.Id });
-            _messageService.SendPackageOwnerRequest(currentUser, user, package, confirmationUrl);
+            _messageService.SendPackageOwnerRequest(currentUser, user, package, confirmationUrl, message);
 
-            return new { success = true, name = user.Username, pending = true };
+            return Json(new { success = true, name = user.Username, pending = true });
         }
 
-        public object RemovePackageOwner(string id, string username)
+        [HttpPost]
+        public async Task<JsonResult> RemovePackageOwner(string id, string username)
         {
             var package = _packageService.FindPackageRegistrationById(id);
             if (package == null)
             {
-                return new { success = false, message = "Package not found" };
+                return Json(new { success = false, message = "Package not found" });
             }
             if (!package.IsOwner(HttpContext.User))
             {
-                return new { success = false, message = "You are not the package owner." };
+                return Json(new { success = false, message = "You are not the package owner." });
             }
             var user = _userService.FindByUsername(username);
             if (user == null)
             {
-                return new { success = false, message = "Owner not found" };
+                return Json(new { success = false, message = "Owner not found" });
+            }
+            var currentUser = _userService.FindByUsername(HttpContext.User.Identity.Name);
+            if (currentUser == null)
+            {
+                return Json(new { success = false, message = "Current user not found" });
             }
 
-            _packageService.RemovePackageOwner(package, user);
-            return new { success = true };
+            await _packageService.RemovePackageOwnerAsync(package, user);
+            _messageService.SendPackageOwnerRemovedNotice(currentUser, user, package);
+
+            return Json(new { success = true });
         }
 
         public class OwnerModel

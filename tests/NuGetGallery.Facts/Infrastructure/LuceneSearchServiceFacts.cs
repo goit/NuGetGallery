@@ -1,12 +1,13 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Lucene.Net.Store;
 using Moq;
+using NuGetGallery.OData;
 using Xunit;
-using Xunit.Extensions;
 
 namespace NuGetGallery.Infrastructure
 {
@@ -303,7 +304,6 @@ namespace NuGetGallery.Infrastructure
         [InlineData("Owners", "NugetCoreOwner")]
         [InlineData("Authors", "Alpha")]
         [InlineData("Author", "Alpha")]
-        [InlineData("Authors", "Alpha")]
         [InlineData("author", "\"Alpha Beta Gamma\"")]
         [InlineData("Description", "core framework")]
         [InlineData("Tags", "dotnet")]
@@ -492,6 +492,7 @@ namespace NuGetGallery.Infrastructure
                 DownloadCount = 12345,
                 FlattenedDependencies = "adjunct-System.FluentCast:1.0.0.4|xunit:1.8.0.1545|adjunct-XUnit.Assertions:1.0.0.5|adjunct-XUnit.Assertions.Linq2Xml:1.0.0.3",
                 HashAlgorithm = "SHA512",
+                // This is a test hash
                 Hash = "Ii4+Gr44RAClAno38k5MYAkcBE6yn2LE2xO+/ViKco45+hoxtwKAytmPWEMCJWhH8FyitjebvS5Fsf+ixI5xIg==",
                 IsLatest = true,
                 IsLatestStable = true,
